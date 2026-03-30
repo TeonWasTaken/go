@@ -6,13 +6,13 @@ Incremental implementation of the Go URL Alias Service — an internal URL alias
 
 ## Tasks
 
-- [ ] 1. Project scaffolding and SWA configuration
-  - [ ] 1.1 Initialize Azure Functions Node.js project with TypeScript
+- [x] 1. Project scaffolding and SWA configuration
+  - [x] 1.1 Initialize Azure Functions Node.js project with TypeScript
     - Set up `api/` directory with `tsconfig.json`, `package.json`, and Azure Functions host configuration
     - Install dependencies: `@azure/cosmos`, `fast-check` (dev)
     - _Requirements: 8.4_
 
-  - [ ] 1.2 Create `staticwebapp.config.json`
+  - [x] 1.2 Create `staticwebapp.config.json`
     - Configure Entra ID as sole auth provider
     - Disable GitHub, Twitter, and all non-Entra ID providers
     - Define custom login route redirecting to Entra ID
@@ -22,7 +22,7 @@ Incremental implementation of the Go URL Alias Service — an internal URL alias
     - Define `User` and `Admin` roles mapped to Entra ID groups
     - _Requirements: 3.1, 3.2, 3.6, 3.7, 3.8, 8.1, 8.2, 8.3, 14.1, 14.2, 14.3, 14.4, 14.8, 14.18_
 
-  - [ ] 1.3 Set up local development environment configuration
+  - [x] 1.3 Set up local development environment configuration
     - Create `.env.example` documenting all environment variables: `COSMOS_CONNECTION_STRING`, `DEV_MODE`, `DEV_USER_EMAIL`, `DEV_USER_ROLES`
     - Create `api/local.settings.json` template with `COSMOS_CONNECTION_STRING` pointing to Cosmos DB Emulator (`AccountEndpoint=https://localhost:8081/;AccountKey=...`) and `DEV_MODE` set to `true`
     - Verify Azure Functions Core Tools can connect to Cosmos DB Emulator using the local settings
@@ -37,7 +37,7 @@ Incremental implementation of the Go URL Alias Service — an internal URL alias
     - Retain standalone `parseClientPrincipal` function for backward compatibility
     - _Requirements: 14.15, 14.16, 14.17, 14.19, 16.1, 16.2, 16.3, 16.4_
 
-  - [ ]\* 2.2 Write property test for Auth Provider and Client Principal parser
+  - [ ] 2.2 Write property test for Auth Provider and Client Principal parser
     - **Property 20: Client principal identity extraction**
     - **Validates: Requirements 14.15, 14.17**
     - **Property 24: Auth provider uses correct identity source based on mode**

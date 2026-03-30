@@ -1,0 +1,43 @@
+# Dependencies
+node_modules/
+
+# Environment files (may contain secrets)
+.env
+.env.local
+api/local.settings.json
+
+# Build output
+dist/
+out/
+
+# TypeScript incremental build
+*.tsbuildinfo
+
+# Test coverage
+coverage/
+
+# Azure Functions
+bin/
+obj/
+appsettings.json
+__azurite_*
+__blobstorage__
+__queuestorage__
+
+# Vite / SPA build
+.vite/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Editor / IDE
+.vscode/settings.json
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
