@@ -90,7 +90,7 @@ Incremental implementation of the Go URL Alias Service — an internal URL alias
     - **Property 22: Heat score decay is monotonically decreasing over idle time**
     - **Validates: Requirements 15.2, 15.3, 15.4, 15.5**
 
-- [ ] 3. Checkpoint - Ensure all tests pass
+- [x] 3. Checkpoint - Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
 - [ ] 4. Cosmos DB data access layer
