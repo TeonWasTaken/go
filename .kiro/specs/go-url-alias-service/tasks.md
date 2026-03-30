@@ -28,8 +28,8 @@ Incremental implementation of the Go URL Alias Service — an internal URL alias
     - Verify Azure Functions Core Tools can connect to Cosmos DB Emulator using the local settings
     - _Requirements: 16.5, 16.6, 16.9, 16.10, 16.11_
 
-- [ ] 2. Shared utilities and data models
-  - [ ] 2.1 Implement Auth Provider abstraction and Client Principal parser (`api/shared/auth-provider.ts`, `api/shared/client-principal.ts`)
+- [x] 2. Shared utilities and data models
+  - [x] 2.1 Implement Auth Provider abstraction and Client Principal parser (`api/shared/auth-provider.ts`, `api/shared/client-principal.ts`)
     - Define `AuthIdentity` interface (`email`, `roles`) and `AuthProvider` interface (`extractIdentity`)
     - Implement `SwaAuthProvider`: decode Base64 `x-ms-client-principal` header, extract `userDetails` (email) and `userRoles`, return typed `AuthIdentity`
     - Implement `MockAuthProvider`: read `x-mock-user-email` and `x-mock-user-roles` headers; fall back to `DEV_USER_EMAIL` / `DEV_USER_ROLES` env vars (default `dev@localhost` / `User`)
@@ -37,13 +37,13 @@ Incremental implementation of the Go URL Alias Service — an internal URL alias
     - Retain standalone `parseClientPrincipal` function for backward compatibility
     - _Requirements: 14.15, 14.16, 14.17, 14.19, 16.1, 16.2, 16.3, 16.4_
 
-  - [ ] 2.2 Write property test for Auth Provider and Client Principal parser
+  - [x] 2.2 Write property test for Auth Provider and Client Principal parser
     - **Property 20: Client principal identity extraction**
     - **Validates: Requirements 14.15, 14.17**
     - **Property 24: Auth provider uses correct identity source based on mode**
     - **Validates: Requirements 14.19, 16.1, 16.2, 16.3, 16.4**
 
-  - [ ] 2.3 Implement URL merge utility (`api/shared/url-utils.ts`)
+  - [x] 2.3 Implement URL merge utility (`api/shared/url-utils.ts`)
     - Merge incoming query params with destination URL params (destination takes precedence for duplicate keys)
     - Handle fragment passthrough (destination fragment takes precedence)
     - Query string and fragment handling are independent
@@ -53,7 +53,7 @@ Incremental implementation of the Go URL Alias Service — an internal URL alias
     - **Property 2: URL merging preserves destination precedence**
     - **Validates: Requirements 1.12, 1.13, 1.14**
 
-  - [ ] 2.5 Define AliasRecord interfaces and validation functions (`api/shared/models.ts`)
+  - [x] 2.5 Define AliasRecord interfaces and validation functions (`api/shared/models.ts`)
     - Define `AliasRecord`, `CreateAliasRequest`, `UpdateAliasRequest` TypeScript interfaces
     - Implement alias format validation (`/^[a-z0-9-]+$/`)
     - Implement destination URL validation
@@ -70,23 +70,23 @@ Incremental implementation of the Go URL Alias Service — an internal URL alias
     - **Property 11: Fixed expiry policy accepts valid configurations only**
     - **Validates: Requirements 2.14**
 
-  - [ ] 2.7 Implement expiry computation utility (`api/shared/expiry-utils.ts`)
+  - [x] 2.7 Implement expiry computation utility (`api/shared/expiry-utils.ts`)
     - Compute `expires_at` from policy type: `never` -> null, `fixed` with duration -> created_at + months, `fixed` with custom -> custom date, `inactivity` -> now + 12 months
     - Set `expiry_status` to `no_expiry` for `never` policy
     - Default to `fixed` with `duration_months: 12` when no policy provided
     - _Requirements: 9.1, 9.2, 9.3, 9.4, 9.5, 9.6_
 
-  - [ ]\* 2.8 Write property test for expiry computation
+  - [x] 2.8 Write property test for expiry computation
     - **Property 12: Expiry timestamp is computed correctly from policy**
     - **Validates: Requirements 9.2, 9.3, 9.4, 9.5, 2.15**
 
-  - [ ] 2.9 Implement heat score computation utility (`api/shared/heat-utils.ts`)
+  - [x] 2.9 Implement heat score computation utility (`api/shared/heat-utils.ts`)
     - Compute decayed heat: `old_heat * 2^(-hours_elapsed/168) + 1.0`
     - Handle null `heat_updated_at` (first access -> heat = 1.0)
     - Update `heat_updated_at` to current UTC time
     - _Requirements: 15.2, 15.3, 15.4, 15.5_
 
-  - [ ]\* 2.10 Write property test for heat score computation
+  - [x] 2.10 Write property test for heat score computation
     - **Property 22: Heat score decay is monotonically decreasing over idle time**
     - **Validates: Requirements 15.2, 15.3, 15.4, 15.5**
 
