@@ -29,6 +29,8 @@
 - **GSA**: Microsoft Entra Global Secure Access -- the zero-trust network access solution used for remote access via corporate devices.
 - **SSO**: Single Sign-On -- the ability for users to authenticate once and access the application without additional login prompts.
 - **Client_Principal**: The authenticated user identity provided by Azure Static Web Apps via the `x-ms-client-principal` HTTP header, containing the user's email, roles, and identity provider information.
+- **Heat_Score**: A numeric field on an Alias_Record that represents the current "hotness" or popularity of an alias. The Heat_Score increases on each redirect and decays exponentially over time using a half-life of 7 days. The decay is applied lazily on each access using the formula: `new_heat = old_heat * decay_factor^(hours_since_last_update) + increment`, where the decay factor is `2^(-1/168)` (168 hours = 7 days).
+- **DEV_MODE**: An environment variable flag that, when set to `true`, enables mock authentication and bypasses SWA Entra ID for local development and testing in environments without Entra ID.
 
 ## Requirements
 
@@ -47,11 +49,12 @@
 7. WHEN neither a Private_Alias nor a Global_Alias matches the requested alias, THE Redirection_Engine SHALL redirect the user to the Management_Dashboard home page with the attempted alias pre-filled as a "create this link" suggestion.
 8. WHEN a successful redirect is performed, THE Redirection_Engine SHALL increment the Click_Count of the matching Alias_Record by 1.
 9. WHEN a successful redirect is performed, THE Redirection_Engine SHALL update the `last_accessed_at` timestamp of the matching Alias_Record to the current UTC time.
-10. WHILE an Alias_Record has Expiry_Status set to `expired`, THE Redirection_Engine SHALL return an HTTP 410 Gone response and redirect the user to the Management_Dashboard with a message indicating the alias has expired.
-11. IF the Redirection_Engine encounters a database error during alias lookup, THEN THE Redirection_Engine SHALL return an HTTP 500 response with a generic error message and log the error details server-side.
-12. WHEN performing a redirect, THE Redirection_Engine SHALL append query parameters from the incoming request to the Destination_URL; if the Destination_URL already contains query parameters, THE Redirection_Engine SHALL merge them with the destination's parameters taking precedence for duplicate keys.
-13. WHEN performing a redirect, THE Redirection_Engine SHALL append the fragment from the incoming request to the Destination_URL; if the Destination_URL already contains a fragment, the destination's fragment SHALL take precedence.
-14. WHEN both query parameters and a fragment are present on the incoming request, THE Redirection_Engine SHALL handle Query_String_Passthrough and Fragment_Passthrough independently.
+10. WHEN a successful redirect is performed, THE Redirection_Engine SHALL apply exponential decay to the Heat_Score of the matching Alias_Record based on the elapsed time since `heat_updated_at`, add a fixed increment of 1.0 to the decayed value, and update `heat_updated_at` to the current UTC time.
+11. WHILE an Alias_Record has Expiry_Status set to `expired`, THE Redirection_Engine SHALL return an HTTP 410 Gone response and redirect the user to the Management_Dashboard with a message indicating the alias has expired.
+12. IF the Redirection_Engine encounters a database error during alias lookup, THEN THE Redirection_Engine SHALL return an HTTP 500 response with a generic error message and log the error details server-side.
+13. WHEN performing a redirect, THE Redirection_Engine SHALL append query parameters from the incoming request to the Destination_URL; if the Destination_URL already contains query parameters, THE Redirection_Engine SHALL merge them with the destination's parameters taking precedence for duplicate keys.
+14. WHEN performing a redirect, THE Redirection_Engine SHALL append the fragment from the incoming request to the Destination_URL; if the Destination_URL already contains a fragment, the destination's fragment SHALL take precedence.
+15. WHEN both query parameters and a fragment are present on the incoming request, THE Redirection_Engine SHALL handle Query_String_Passthrough and Fragment_Passthrough independently.
 
 ### Requirement 2: Alias Management API
 
@@ -67,15 +70,17 @@
 6. WHEN a PUT request is received at `/api/links/:alias` with an updated Expiry_Policy, THE API SHALL recalculate the `expires_at` timestamp based on the new policy and reset the Expiry_Status to `active`.
 7. WHEN a DELETE request is received at `/api/links/:alias` by the creator of the Alias_Record, THE API SHALL remove the matching Alias_Record from Cosmos DB.
 8. WHEN a GET request is received at `/api/links` with a `sort` query parameter set to `clicks`, THE API SHALL return Alias_Records sorted by Click_Count in descending order.
-9. WHEN a GET request is received at `/api/links`, THE API SHALL include the Click_Count and `last_accessed_at` fields in each returned Alias_Record.
-10. WHEN a PUT or DELETE request targets a Private_Alias, THE API SHALL scope the operation to the Alias_Record owned by the authenticated user.
-11. IF a POST or PUT request is received with a Destination_URL that is not a valid URL format, THEN THE API SHALL return an HTTP 400 Bad Request response with a descriptive validation error message.
-12. IF a POST request is received with an Alias that contains characters other than lowercase alphanumeric characters and hyphens, THEN THE API SHALL return an HTTP 400 Bad Request response indicating the allowed alias format.
-13. IF a POST or PUT request is received with an Expiry_Policy type that is not one of `never`, `fixed`, or `inactivity`, THEN THE API SHALL return an HTTP 400 Bad Request response with a descriptive validation error message.
-14. WHEN a POST or PUT request specifies a `fixed` Expiry_Policy, THE API SHALL accept either a `duration_months` field with a value of 1, 3, or 12, or a `custom_expires_at` field with a future ISO 8601 UTC timestamp.
-15. WHEN a POST or PUT request specifies an `inactivity` Expiry_Policy, THE API SHALL set the inactivity duration to 12 months (hardcoded); no configurable duration field is accepted.
-16. WHEN a PUT request is received at `/api/links/:alias/renew` by the creator of the Alias_Record or an Admin, THE API SHALL reset the `expires_at` timestamp based on the current Expiry_Policy and set the Expiry_Status to `active`.
-17. THE API SHALL perform case-insensitive conflict detection when checking alias uniqueness during creation.
+9. WHEN a GET request is received at `/api/links` with a `sort` query parameter set to `heat`, THE API SHALL return Alias_Records sorted by Heat_Score in descending order.
+10. WHEN a GET request is received at `/api/links`, THE API SHALL include the Click_Count, `last_accessed_at`, and Heat_Score fields in each returned Alias_Record.
+11. WHEN a GET request is received at `/api/links` with a `scope` query parameter set to `popular`, THE API SHALL return the top 10 Global_Alias records ranked by Heat_Score in descending order.
+12. WHEN a PUT or DELETE request targets a Private_Alias, THE API SHALL scope the operation to the Alias_Record owned by the authenticated user.
+13. IF a POST or PUT request is received with a Destination_URL that is not a valid URL format, THEN THE API SHALL return an HTTP 400 Bad Request response with a descriptive validation error message.
+14. IF a POST request is received with an Alias that contains characters other than lowercase alphanumeric characters and hyphens, THEN THE API SHALL return an HTTP 400 Bad Request response indicating the allowed alias format.
+15. IF a POST or PUT request is received with an Expiry_Policy type that is not one of `never`, `fixed`, or `inactivity`, THEN THE API SHALL return an HTTP 400 Bad Request response with a descriptive validation error message.
+16. WHEN a POST or PUT request specifies a `fixed` Expiry_Policy, THE API SHALL accept either a `duration_months` field with a value of 1, 3, or 12, or a `custom_expires_at` field with a future ISO 8601 UTC timestamp.
+17. WHEN a POST or PUT request specifies an `inactivity` Expiry_Policy, THE API SHALL set the inactivity duration to 12 months (hardcoded); no configurable duration field is accepted.
+18. WHEN a PUT request is received at `/api/links/:alias/renew` by the creator of the Alias_Record or an Admin, THE API SHALL reset the `expires_at` timestamp based on the current Expiry_Policy and set the Expiry_Status to `active`.
+19. THE API SHALL perform case-insensitive conflict detection when checking alias uniqueness during creation.
 
 ### Requirement 3: Role-Based Access Control
 
@@ -99,22 +104,23 @@
 #### Acceptance Criteria
 
 1. THE Management_Dashboard SHALL display a searchable list of all Global_Alias records and the current user's Private_Alias records.
-2. WHEN a user types into the search bar, THE Management_Dashboard SHALL filter the displayed Alias_Records by Alias or Title within 300 milliseconds of the last keystroke (debounced).
-3. WHEN a user clicks the "Create" button and submits a valid alias form, THE Management_Dashboard SHALL send a POST request to `/api/links` and display the newly created Alias_Record in the list.
-4. WHEN creating an alias, THE Management_Dashboard SHALL provide a toggle or selector for the user to choose between "Global" and "Personal" (private) alias types.
-5. WHEN a user creates a Personal alias with the same name as an existing Global_Alias, THE Management_Dashboard SHALL display an informational message explaining that the Interstitial_Page will be shown when both match.
-6. WHEN a user clicks the "Edit" button on an Alias_Record the user owns, THE Management_Dashboard SHALL display a pre-filled form allowing the user to update the Destination_URL, Title, `is_private`, and Expiry_Policy fields.
-7. WHEN a user clicks the "Delete" button on an Alias_Record the user owns, THE Management_Dashboard SHALL prompt for confirmation and, upon confirmation, send a DELETE request to `/api/links/:alias` and remove the Alias_Record from the displayed list.
-8. IF the API returns an error response during any CRUD operation, THEN THE Management_Dashboard SHALL display an animated toast notification with a user-readable error message without exposing internal error details.
-9. THE Management_Dashboard SHALL display the Click_Count and `last_accessed_at` timestamp for each Alias_Record in the list view.
-10. WHILE the Management_Dashboard is loading data from the API, THE Management_Dashboard SHALL display skeleton loading states instead of spinners.
-11. THE Management_Dashboard SHALL display Private_Alias records with a "Personal" badge or indicator to visually distinguish them from Global_Alias records.
-12. WHEN a user creates or edits an alias, THE Management_Dashboard SHALL display an Expiry_Policy selector using a two-step flow: first select the type (`Never`, `Expire on date`, `After inactivity`), then for `Expire on date` show preset duration options (1 month, 3 months, 12 months) and a custom date picker, and for `After inactivity` show an informational note that the alias expires after 12 months of no access.
-13. THE Management_Dashboard SHALL display the Expiry_Status and `expires_at` date for each Alias_Record in the list view.
-14. THE Management_Dashboard SHALL visually distinguish Alias_Records with Expiry_Status `expiring_soon` (e.g., warning indicator) and `expired` (e.g., muted or strikethrough styling) from active records.
-15. WHEN a user clicks a "Renew" action on an expired or expiring_soon Alias_Record the user owns, THE Management_Dashboard SHALL send a PUT request to `/api/links/:alias/renew` and update the displayed Expiry_Status to `active`.
-16. THE Management_Dashboard SHALL provide a filter option to view aliases by Expiry_Status: `All`, `Active`, `Expiring Soon`, `Expired`, and `No Expiry`.
-17. THE Management_Dashboard SHALL display aliases in lowercase in create and edit forms.
+2. THE Management_Dashboard SHALL display a "Popular Links" section on the homepage showing the top 10 Global_Alias records ranked by Heat_Score in descending order, including the alias name, title, and a visual heat indicator.
+3. WHEN a user types into the search bar, THE Management_Dashboard SHALL filter the displayed Alias_Records by Alias or Title within 300 milliseconds of the last keystroke (debounced).
+4. WHEN a user clicks the "Create" button and submits a valid alias form, THE Management_Dashboard SHALL send a POST request to `/api/links` and display the newly created Alias_Record in the list.
+5. WHEN creating an alias, THE Management_Dashboard SHALL provide a toggle or selector for the user to choose between "Global" and "Personal" (private) alias types.
+6. WHEN a user creates a Personal alias with the same name as an existing Global_Alias, THE Management_Dashboard SHALL display an informational message explaining that the Interstitial_Page will be shown when both match.
+7. WHEN a user clicks the "Edit" button on an Alias_Record the user owns, THE Management_Dashboard SHALL display a pre-filled form allowing the user to update the Destination_URL, Title, `is_private`, and Expiry_Policy fields.
+8. WHEN a user clicks the "Delete" button on an Alias_Record the user owns, THE Management_Dashboard SHALL prompt for confirmation and, upon confirmation, send a DELETE request to `/api/links/:alias` and remove the Alias_Record from the displayed list.
+9. IF the API returns an error response during any CRUD operation, THEN THE Management_Dashboard SHALL display an animated toast notification with a user-readable error message without exposing internal error details.
+10. THE Management_Dashboard SHALL display the Click_Count and `last_accessed_at` timestamp for each Alias_Record in the list view.
+11. WHILE the Management_Dashboard is loading data from the API, THE Management_Dashboard SHALL display skeleton loading states instead of spinners.
+12. THE Management_Dashboard SHALL display Private_Alias records with a "Personal" badge or indicator to visually distinguish them from Global_Alias records.
+13. WHEN a user creates or edits an alias, THE Management_Dashboard SHALL display an Expiry_Policy selector using a two-step flow: first select the type (`Never`, `Expire on date`, `After inactivity`), then for `Expire on date` show preset duration options (1 month, 3 months, 12 months) and a custom date picker, and for `After inactivity` show an informational note that the alias expires after 12 months of no access.
+14. THE Management_Dashboard SHALL display the Expiry_Status and `expires_at` date for each Alias_Record in the list view.
+15. THE Management_Dashboard SHALL visually distinguish Alias_Records with Expiry_Status `expiring_soon` (e.g., warning indicator) and `expired` (e.g., muted or strikethrough styling) from active records.
+16. WHEN a user clicks a "Renew" action on an expired or expiring_soon Alias_Record the user owns, THE Management_Dashboard SHALL send a PUT request to `/api/links/:alias/renew` and update the displayed Expiry_Status to `active`.
+17. THE Management_Dashboard SHALL provide a filter option to view aliases by Expiry_Status: `All`, `Active`, `Expiring Soon`, `Expired`, and `No Expiry`.
+18. THE Management_Dashboard SHALL display aliases in lowercase in create and edit forms.
 
 ### Requirement 5: Database Schema
 
@@ -123,7 +129,7 @@
 #### Acceptance Criteria
 
 1. THE Go_Service SHALL store each Alias_Record as a document in a Cosmos DB container named `aliases` with the `alias` field as the partition key.
-2. THE Go_Service SHALL store the following fields on each Alias_Record: `id` (string, composite key), `alias` (string, always lowercase), `destination_url` (string), `created_by` (string, user email), `title` (string), `click_count` (integer, default 0), `is_private` (boolean, default false), `created_at` (ISO 8601 UTC timestamp), `last_accessed_at` (ISO 8601 UTC timestamp, nullable), `expiry_policy_type` (string, one of `never`, `fixed`, `inactivity`; default `fixed`), `duration_months` (integer, nullable, one of 1, 3, or 12; used when `expiry_policy_type` is `fixed` with a preset duration), `custom_expires_at` (ISO 8601 UTC timestamp, nullable; used when `expiry_policy_type` is `fixed` with a custom date), `expires_at` (ISO 8601 UTC timestamp, nullable, computed; null when `expiry_policy_type` is `never`), `expiry_status` (string, one of `active`, `expiring_soon`, `expired`, `no_expiry`; default `active`), and `expired_at` (ISO 8601 UTC timestamp, nullable, set when the alias transitions to `expired` status).
+2. THE Go_Service SHALL store the following fields on each Alias_Record: `id` (string, composite key), `alias` (string, always lowercase), `destination_url` (string), `created_by` (string, user email), `title` (string), `click_count` (integer, default 0), `heat_score` (number, default 0), `heat_updated_at` (ISO 8601 UTC timestamp, nullable), `is_private` (boolean, default false), `created_at` (ISO 8601 UTC timestamp), `last_accessed_at` (ISO 8601 UTC timestamp, nullable), `expiry_policy_type` (string, one of `never`, `fixed`, `inactivity`; default `fixed`), `duration_months` (integer, nullable, one of 1, 3, or 12; used when `expiry_policy_type` is `fixed` with a preset duration), `custom_expires_at` (ISO 8601 UTC timestamp, nullable; used when `expiry_policy_type` is `fixed` with a custom date), `expires_at` (ISO 8601 UTC timestamp, nullable, computed; null when `expiry_policy_type` is `never`), `expiry_status` (string, one of `active`, `expiring_soon`, `expired`, `no_expiry`; default `active`), and `expired_at` (ISO 8601 UTC timestamp, nullable, set when the alias transitions to `expired` status).
 3. FOR Global_Alias records, THE Go_Service SHALL set the document `id` to the alias name (e.g., `benefits`).
 4. FOR Private_Alias records, THE Go_Service SHALL set the document `id` to a composite key of `{alias}:{created_by}` (e.g., `benefits:user@example.com`).
 5. THE Go_Service SHALL always store the `alias` field in lowercase to enforce case-insensitive uniqueness.
@@ -136,8 +142,9 @@
 
 1. WHEN the Redirection_Engine performs a successful redirect, THE Go_Service SHALL atomically increment the Click_Count of the Alias_Record by 1.
 2. WHEN the Redirection_Engine performs a successful redirect, THE Go_Service SHALL update the `last_accessed_at` field of the Alias_Record to the current UTC time.
-3. WHEN a GET request is received at `/api/links`, THE API SHALL include the Click_Count and `last_accessed_at` fields in each returned Alias_Record.
-4. WHEN a GET request is received at `/api/links` with a `sort` query parameter set to `clicks`, THE API SHALL return Alias_Records sorted by Click_Count in descending order.
+3. WHEN the Redirection_Engine performs a successful redirect, THE Go_Service SHALL update the Heat_Score of the Alias_Record by applying exponential decay since the last update and adding a fixed increment of 1.0.
+4. WHEN a GET request is received at `/api/links`, THE API SHALL include the Click_Count, `last_accessed_at`, and Heat_Score fields in each returned Alias_Record.
+5. WHEN a GET request is received at `/api/links` with a `sort` query parameter set to `clicks`, THE API SHALL return Alias_Records sorted by Click_Count in descending order.
 
 ### Requirement 7: Private Alias Scoping
 
@@ -255,3 +262,40 @@
 16. THE API SHALL use the authenticated user's email from the Client_Principal consistently for `created_by` fields, ownership checks, and private alias scoping.
 17. THE API SHALL NOT trust user-provided identity information in request bodies -- only the Client_Principal header is authoritative for user identity.
 18. THE Go_Service SHALL use SWA's built-in Entra ID authentication (configured via `staticwebapp.config.json`) rather than a custom MSAL implementation.
+19. THE API SHALL abstract the authentication extraction logic behind an interface (Auth_Provider) that can use either the real Client_Principal header (production) or mock headers (DEV_MODE), so that the same API code works in both environments.
+
+### Requirement 15: Link Heat Score
+
+**User Story:** As an employee, I want to see which links are trending and popular based on recent usage, so that I can discover frequently used resources and the homepage surfaces the most relevant links.
+
+#### Acceptance Criteria
+
+1. THE Go_Service SHALL store a `heat_score` (number, default 0) and `heat_updated_at` (ISO 8601 UTC timestamp, nullable) field on each Alias_Record.
+2. WHEN a successful redirect is performed, THE Redirection_Engine SHALL update the Heat_Score of the matching Alias_Record by first applying exponential decay based on the elapsed time since `heat_updated_at`, then adding a fixed increment of 1.0.
+3. THE Redirection_Engine SHALL compute the decayed Heat_Score using the formula: `new_heat = old_heat * decay_factor^(hours_since_last_update) + 1.0`, where the decay factor is `2^(-1/168)` (resulting in a half-life of 7 days, i.e., 168 hours).
+4. WHEN `heat_updated_at` is null (first access), THE Redirection_Engine SHALL treat the previous Heat_Score as 0 and set the new Heat_Score to 1.0.
+5. WHEN the Heat_Score is updated, THE Redirection_Engine SHALL set `heat_updated_at` to the current UTC time.
+6. THE Management_Dashboard SHALL display a "Popular Links" section on the homepage showing the top 10 Global_Alias records ranked by Heat_Score in descending order.
+7. THE Management_Dashboard SHALL display the alias name, title, and a visual heat indicator for each link in the "Popular Links" section.
+8. THE Management_Dashboard SHALL exclude Private_Alias records from the "Popular Links" section.
+9. WHEN a GET request is received at `/api/links` with a `sort` query parameter set to `heat`, THE API SHALL return Alias_Records sorted by Heat_Score in descending order.
+10. WHEN a GET request is received at `/api/links` with a `scope` query parameter set to `popular`, THE API SHALL return the top 10 Global_Alias records ranked by Heat_Score in descending order.
+11. THE API SHALL include the Heat_Score field in each returned Alias_Record.
+
+### Requirement 16: Local Development and Testing Support
+
+**User Story:** As a developer, I want to develop and test the Go service locally and in private Azure tenancies without Entra ID, so that I can iterate quickly without depending on a production identity provider.
+
+#### Acceptance Criteria
+
+1. THE Go_Service SHALL support a `DEV_MODE` environment variable that, when set to `true`, bypasses SWA Entra ID authentication and uses a configurable mock user identity.
+2. WHEN `DEV_MODE` is enabled, THE API SHALL accept an `x-mock-user-email` header and an `x-mock-user-roles` header to simulate different users and roles.
+3. WHEN `DEV_MODE` is enabled and no mock headers are provided, THE API SHALL default to a preconfigured dev user (e.g., `dev@localhost` with `User` role).
+4. THE `DEV_MODE` flag SHALL NOT be enabled in production deployments; the SWA_Config and deployment pipeline SHALL ensure this.
+5. THE Go_Service SHALL support connecting to the Azure Cosmos DB Emulator for local development via a `COSMOS_CONNECTION_STRING` environment variable.
+6. THE Go_Service SHALL support connecting to a real Cosmos DB instance in a private Azure tenancy using the same `COSMOS_CONNECTION_STRING` environment variable.
+7. THE Management_Dashboard SHALL support running locally via a dev server (e.g., Vite) with API proxy configuration pointing to the local Azure Functions runtime.
+8. WHEN running locally, THE Management_Dashboard SHALL skip the SWA auth redirect and use the mock auth headers instead.
+9. THE Go_Service SHALL use environment variables for all configuration (Cosmos DB connection string, DEV_MODE flag, default dev user).
+10. THE Go_Service SHALL include a `.env.example` file documenting all required environment variables.
+11. THE Go_Service SHALL include a `local.settings.json` template for Azure Functions local development.
