@@ -159,7 +159,7 @@ Incremental implementation of the Go URL Alias Service — an internal URL alias
     - Create document in Cosmos DB
     - _Requirements: 2.3, 2.4, 2.13, 2.14, 2.15, 2.16, 2.17, 2.19, 5.3, 5.4, 5.5, 9.1, 9.2, 9.3, 9.4, 9.5, 9.6_
 
-  - [ ]\* 6.4 Write property tests for POST /api/links
+  - [x] 6.4 Write property tests for POST /api/links
     - **Property 8: Alias creation applies correct defaults**
     - **Validates: Requirements 2.3, 9.6**
     - **Property 9: Global alias names are unique (case-insensitive)**
@@ -172,7 +172,7 @@ Incremental implementation of the Go URL Alias Service — an internal URL alias
     - For private aliases, scope to authenticated user's record
     - _Requirements: 2.5, 2.6, 2.12, 3.3, 3.4, 3.5_
 
-  - [ ]\* 6.6 Write property test for update authorization and expiry recalculation
+  - [x] 6.6 Write property test for update authorization and expiry recalculation
     - **Property 13: Update recalculates expiry and resets status**
     - **Validates: Requirements 2.5, 2.6**
     - **Property 16: Authorization enforces role-based access**
@@ -184,7 +184,7 @@ Incremental implementation of the Go URL Alias Service — an internal URL alias
     - Remove document from Cosmos DB
     - _Requirements: 2.7, 2.12, 3.3, 3.4, 3.5_
 
-  - [ ]\* 6.8 Write property test for delete
+  - [x] 6.8 Write property test for delete
     - **Property 14: Delete removes the record**
     - **Validates: Requirements 2.7**
 
@@ -194,15 +194,15 @@ Incremental implementation of the Go URL Alias Service — an internal URL alias
     - Set `expiry_status` to `active`, clear `expired_at`
     - _Requirements: 2.18, 10.4, 10.6_
 
-  - [ ]\* 6.10 Write property test for renewal
+  - [x] 6.10 Write property test for renewal
     - **Property 19: Renewal resets alias to active state**
     - **Validates: Requirements 2.16, 10.4, 10.6**
 
-- [ ] 7. Checkpoint - Ensure all tests pass
+- [x] 7. Checkpoint - Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 8. Expiry Processor
-  - [ ] 8.1 Implement timer-triggered Azure Function (`api/expiry-processor/index.ts`)
+- [x] 8. Expiry Processor
+  - [x] 8.1 Implement timer-triggered Azure Function (`api/expiry-processor/index.ts`)
     - Configure timer trigger for daily execution (`0 0 2 * * *`)
     - Query all records where `expiry_policy_type !== 'never'`
     - For each record: if `expires_at` within 7 days and status `active` -> set `expiring_soon`; if `expires_at` past and not `expired` -> set `expired` + set `expired_at`; if `expired` and `expired_at` > 14 days ago -> permanently delete
@@ -210,13 +210,13 @@ Incremental implementation of the Go URL Alias Service — an internal URL alias
     - Log summary counts on completion (expiring_soon, expired, deleted, errors)
     - _Requirements: 10.1, 10.2, 10.5, 11.1, 11.2, 11.3, 11.4, 11.5, 11.6, 11.7_
 
-  - [ ]\* 8.2 Write property tests for expiry processor
+  - [x] 8.2 Write property tests for expiry processor
     - **Property 18: Expiry state machine transitions are correct**
     - **Validates: Requirements 10.1, 10.2, 10.5, 11.2, 11.3, 11.4, 11.5**
     - **Property 21: Expiry processor summary matches actual transitions**
     - **Validates: Requirements 11.7**
 
-- [ ] 9. Checkpoint - Ensure all tests pass
+- [x] 9. Checkpoint - Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
 - [ ] 10. React SPA scaffolding and design system
