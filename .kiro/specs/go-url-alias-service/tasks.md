@@ -49,7 +49,7 @@ Incremental implementation of the Go URL Alias Service — an internal URL alias
     - Query string and fragment handling are independent
     - _Requirements: 1.13, 1.14, 1.15_
 
-  - [ ]\* 2.4 Write property test for URL merge utility
+  - [x] 2.4 Write property test for URL merge utility
     - **Property 2: URL merging preserves destination precedence**
     - **Validates: Requirements 1.12, 1.13, 1.14**
 
@@ -62,7 +62,7 @@ Incremental implementation of the Go URL Alias Service — an internal URL alias
     - Implement ID generation: global = `{alias}`, private = `{alias}:{created_by}`
     - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 2.13, 2.14, 2.15_
 
-  - [ ]\* 2.6 Write property tests for alias record invariants and validation
+  - [x] 2.6 Write property tests for alias record invariants and validation
     - **Property 17: Alias record invariants**
     - **Validates: Requirements 5.2, 5.3, 5.4, 5.5, 2.10, 6.4, 15.1, 15.11**
     - **Property 10: Invalid inputs are rejected with 400**
@@ -93,8 +93,8 @@ Incremental implementation of the Go URL Alias Service — an internal URL alias
 - [x] 3. Checkpoint - Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 4. Cosmos DB data access layer
-  - [ ] 4.1 Implement Cosmos DB client and alias repository (`api/shared/cosmos-client.ts`)
+- [x] 4. Cosmos DB data access layer
+  - [x] 4.1 Implement Cosmos DB client and alias repository (`api/shared/cosmos-client.ts`)
     - Initialize Cosmos client with connection string from environment
     - Create/reference `aliases` container with `/alias` partition key
     - Implement `getAliasByPartition(alias, id)` -- point read
@@ -108,8 +108,8 @@ Incremental implementation of the Go URL Alias Service — an internal URL alias
     - Implement sort queries for `click_count` and `heat_score` descending
     - _Requirements: 5.1, 2.1, 2.2, 2.8, 2.9, 2.11, 7.3, 7.4, 11.2, 15.10_
 
-- [ ] 5. Redirection Engine
-  - [ ] 5.1 Implement redirect Azure Function (`api/redirect/index.ts`)
+- [x] 5. Redirection Engine
+  - [x] 5.1 Implement redirect Azure Function (`api/redirect/index.ts`)
     - Parse alias from path, normalize to lowercase
     - Extract user identity from Client Principal
     - Check `expiry_status` -- return 410 if expired, redirect to dashboard with expiry message
@@ -121,7 +121,7 @@ Incremental implementation of the Go URL Alias Service — an internal URL alias
     - Handle database errors: return 500 with generic message, log details
     - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 1.10, 1.11, 1.12, 1.13, 1.14, 1.15, 6.1, 6.2, 6.3, 7.2, 9.7, 10.3, 13.1_
 
-  - [ ]\* 5.2 Write property tests for redirection engine
+  - [x] 5.2 Write property tests for redirection engine
     - **Property 1: Alias resolution follows private-first precedence**
     - **Validates: Requirements 1.4, 1.5, 1.6, 1.7, 7.1, 7.2**
     - **Property 3: Successful redirect increments analytics**
@@ -131,8 +131,8 @@ Incremental implementation of the Go URL Alias Service — an internal URL alias
     - **Property 5: Inactivity expiry resets on access**
     - **Validates: Requirements 9.7**
 
-- [ ] 6. Alias CRUD API
-  - [ ] 6.1 Implement GET `/api/links` Azure Function
+- [x] 6. Alias CRUD API
+  - [x] 6.1 Implement GET `/api/links` Azure Function
     - Return all global aliases + authenticated user's private aliases
     - Support `search` query param with case-insensitive substring match on alias/title
     - Support `sort=clicks` (descending click_count) and `sort=heat` (descending heat_score)
@@ -140,7 +140,7 @@ Incremental implementation of the Go URL Alias Service — an internal URL alias
     - Include `click_count`, `last_accessed_at`, `heat_score` in each record
     - _Requirements: 2.1, 2.2, 2.8, 2.9, 2.10, 2.11, 6.4, 6.5, 7.3, 7.4, 15.9, 15.10, 15.11_
 
-  - [ ]\* 6.2 Write property tests for GET /api/links
+  - [x] 6.2 Write property tests for GET /api/links
     - **Property 6: API returns globals plus only the requesting user's private aliases**
     - **Validates: Requirements 2.1, 7.3, 7.4**
     - **Property 7: Search filters by alias or title**
@@ -150,7 +150,7 @@ Incremental implementation of the Go URL Alias Service — an internal URL alias
     - **Property 23: Popular links returns only top global aliases by heat**
     - **Validates: Requirements 15.6, 15.8, 15.10**
 
-  - [ ] 6.3 Implement POST `/api/links` Azure Function
+  - [x] 6.3 Implement POST `/api/links` Azure Function
     - Validate alias format, destination URL, expiry policy
     - Check for global alias name conflict (case-insensitive) -- return 409 if exists
     - Generate document ID (global: `{alias}`, private: `{alias}:{created_by}`)
@@ -165,7 +165,7 @@ Incremental implementation of the Go URL Alias Service — an internal URL alias
     - **Property 9: Global alias names are unique (case-insensitive)**
     - **Validates: Requirements 2.4, 2.17**
 
-  - [ ] 6.5 Implement PUT `/api/links/:alias` Azure Function
+  - [x] 6.5 Implement PUT `/api/links/:alias` Azure Function
     - Authorize: creator can update own alias; Admin can update any global alias; no one can update another user's private alias
     - Validate updated fields (destination URL, expiry policy)
     - Recalculate `expires_at` on expiry policy change, reset `expiry_status` to `active`
@@ -178,7 +178,7 @@ Incremental implementation of the Go URL Alias Service — an internal URL alias
     - **Property 16: Authorization enforces role-based access**
     - **Validates: Requirements 3.3, 3.4, 3.5, 2.10**
 
-  - [ ] 6.7 Implement DELETE `/api/links/:alias` Azure Function
+  - [x] 6.7 Implement DELETE `/api/links/:alias` Azure Function
     - Authorize: creator can delete own alias; Admin can delete any global alias; no one can delete another user's private alias
     - For private aliases, scope to authenticated user's record
     - Remove document from Cosmos DB
@@ -188,7 +188,7 @@ Incremental implementation of the Go URL Alias Service — an internal URL alias
     - **Property 14: Delete removes the record**
     - **Validates: Requirements 2.7**
 
-  - [ ] 6.9 Implement PUT `/api/links/:alias/renew` Azure Function
+  - [x] 6.9 Implement PUT `/api/links/:alias/renew` Azure Function
     - Authorize: creator or Admin can renew
     - Reset `expires_at` based on current expiry policy
     - Set `expiry_status` to `active`, clear `expired_at`
