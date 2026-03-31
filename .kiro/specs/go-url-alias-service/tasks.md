@@ -237,6 +237,25 @@ Incremental implementation of the Go URL Alias Service — an internal URL alias
     - Responsive layout for desktop and tablet viewports
     - _Requirements: 12.1, 12.2, 12.4, 12.5, 12.6, 12.7, 12.9_
 
+  - [ ] 10.3 Implement light/dark mode theme system
+    - Define light and dark theme CSS custom properties (colors, backgrounds, borders, shadows, glassmorphism opacities) scoped to a `data-theme` attribute on the root HTML element
+    - Create a `ThemeProvider` context/hook (`useTheme`) that manages the active Theme_Mode (`light`, `dark`, `system`)
+    - On initial load, read `go-theme-preference` from `localStorage`; default to `system` if not set
+    - When Theme_Mode is `system`, detect OS preference via `window.matchMedia('(prefers-color-scheme: dark)')` and listen for changes in real time
+    - Persist user's Theme_Mode selection to `localStorage` under key `go-theme-preference`
+    - Apply smooth CSS transition on background and surface colors when switching themes
+    - Ensure glassmorphism frosted glass effect, semi-transparent surfaces, and gradients have appropriate light and dark variants
+    - Maintain WCAG AA contrast ratios (4.5:1 normal text, 3:1 large text) in both themes
+    - _Requirements: 17.1, 17.3, 17.4, 17.5, 17.6, 17.7, 17.8, 17.9, 17.10, 17.11_
+
+  - [ ] 10.4 Implement Theme_Toggle component
+    - Create a Theme_Toggle control (e.g., segmented button or dropdown) with three options: Light, Dark, System
+    - Place the Theme_Toggle in the main navigation or header area
+    - Wire the toggle to the `useTheme` hook to update Theme_Mode and persist to `localStorage`
+    - Apply the new theme immediately on selection
+    - Include ARIA labels and keyboard accessibility for the toggle control
+    - _Requirements: 17.2, 17.3, 17.6_
+
 - [ ] 11. Management Dashboard core pages
   - [ ] 11.1 Implement API client service (`src/services/api.ts`)
     - Create typed API client for all `/api/links` endpoints (GET, POST, PUT, DELETE, renew)
@@ -255,7 +274,8 @@ Incremental implementation of the Go URL Alias Service — an internal URL alias
     - Visually distinguish `expiring_soon` (warning indicator) and `expired` (muted/strikethrough) records
     - Provide filter tabs by expiry status: All, Active, Expiring Soon, Expired, No Expiry
     - Skeleton loading states while fetching data
-    - _Requirements: 4.1, 4.10, 4.11, 4.12, 4.14, 4.15, 4.17_
+    - Ensure all components (badges, status indicators, cards) render correctly in both light and dark themes
+    - _Requirements: 4.1, 4.10, 4.11, 4.12, 4.14, 4.15, 4.17, 17.12_
 
   - [ ] 11.4 Implement `PopularLinks` component
     - Display top 10 global aliases ranked by heat score
@@ -285,7 +305,8 @@ Incremental implementation of the Go URL Alias Service — an internal URL alias
     - Auto-redirect to private destination after 5 seconds with visible countdown timer
     - Provide clickable links to either destination, cancelling auto-redirect on click
     - Apply glassmorphism design standards
-    - _Requirements: 13.1, 13.2, 13.3, 13.4, 13.5, 13.6_
+    - Ensure the interstitial page renders correctly in both light and dark themes
+    - _Requirements: 13.1, 13.2, 13.3, 13.4, 13.5, 13.6, 17.12_
 
 - [ ] 13. Final checkpoint - Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.

@@ -31,6 +31,8 @@
 - **Client_Principal**: The authenticated user identity provided by Azure Static Web Apps via the `x-ms-client-principal` HTTP header, containing the user's email, roles, and identity provider information.
 - **Heat_Score**: A numeric field on an Alias_Record that represents the current "hotness" or popularity of an alias. The Heat_Score increases on each redirect and decays exponentially over time using a half-life of 7 days. The decay is applied lazily on each access using the formula: `new_heat = old_heat * decay_factor^(hours_since_last_update) + increment`, where the decay factor is `2^(-1/168)` (168 hours = 7 days).
 - **DEV_MODE**: An environment variable flag that, when set to `true`, enables mock authentication and bypasses SWA Entra ID for local development and testing in environments without Entra ID.
+- **Theme_Mode**: The active color scheme of the Management_Dashboard. Possible values are `light`, `dark`, and `system`. When set to `system`, the dashboard follows the user's OS-level color scheme preference.
+- **Theme_Toggle**: A UI control in the Management_Dashboard that allows the user to switch between `light`, `dark`, and `system` (auto) Theme_Modes.
 
 ## Requirements
 
@@ -299,3 +301,22 @@
 9. THE Go_Service SHALL use environment variables for all configuration (Cosmos DB connection string, DEV_MODE flag, default dev user).
 10. THE Go_Service SHALL include a `.env.example` file documenting all required environment variables.
 11. THE Go_Service SHALL include a `local.settings.json` template for Azure Functions local development.
+
+### Requirement 17: Light/Dark Mode Theme Support
+
+**User Story:** As an authenticated employee, I want the Management Dashboard to support light and dark color schemes, so that I can use the interface comfortably in different lighting conditions and according to my personal preference.
+
+#### Acceptance Criteria
+
+1. WHEN the Management_Dashboard loads for the first time and no Theme_Mode preference is stored, THE Management_Dashboard SHALL default to `system` Theme_Mode and apply the color scheme matching the user's OS-level `prefers-color-scheme` media query.
+2. THE Management_Dashboard SHALL provide a Theme_Toggle control accessible from the main navigation or header area, allowing the user to switch between `light`, `dark`, and `system` Theme_Modes.
+3. WHEN a user selects a Theme_Mode via the Theme_Toggle, THE Management_Dashboard SHALL persist the selected Theme_Mode in the browser's `localStorage` under the key `go-theme-preference`.
+4. WHEN the Management_Dashboard loads and a Theme_Mode preference exists in `localStorage`, THE Management_Dashboard SHALL apply the stored Theme_Mode instead of the default `system` mode.
+5. WHILE the Theme_Mode is set to `system`, THE Management_Dashboard SHALL listen for changes to the OS-level `prefers-color-scheme` media query and update the active color scheme in real time without requiring a page reload.
+6. WHEN the user switches Theme_Mode via the Theme_Toggle, THE Management_Dashboard SHALL apply the new color scheme immediately using a smooth CSS transition on the background and surface colors.
+7. THE Management_Dashboard SHALL define light and dark theme variants for all glassmorphism design elements, including frosted glass backgrounds, semi-transparent surfaces, gradients, card borders, and text colors.
+8. WHILE the Theme_Mode is `dark`, THE Management_Dashboard SHALL use darker semi-transparent backgrounds with lighter text, and adjust the frosted glass effect opacity and blur to maintain visual clarity against dark surfaces.
+9. WHILE the Theme_Mode is `light`, THE Management_Dashboard SHALL use lighter semi-transparent backgrounds with darker text, consistent with the existing glassmorphism design defined in Requirement 12.
+10. THE Management_Dashboard SHALL maintain WCAG AA contrast ratios (minimum 4.5:1 for normal text, 3:1 for large text) in both light and dark themes across all text, icons, and interactive elements rendered over blurred or semi-transparent backgrounds.
+11. THE Management_Dashboard SHALL implement theme colors using CSS custom properties (CSS variables) scoped to a `data-theme` attribute on the root HTML element, enabling theme switching without JavaScript-driven style recalculation.
+12. THE Management_Dashboard SHALL ensure that all UI components (toast notifications, skeleton loaders, modals, the Interstitial_Page, expiry status indicators, and the "Personal" badge) render correctly and remain visually distinguishable in both light and dark themes.
