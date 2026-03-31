@@ -1,0 +1,344 @@
+/* ── Glassmorphism Design System ── */
+
+:root {
+  /* Typography */
+  font-family:
+    "Inter",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    Oxygen,
+    Ubuntu,
+    Cantarell,
+    "Fira Sans",
+    "Droid Sans",
+    "Helvetica Neue",
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  line-height: 1.5;
+  font-weight: 400;
+
+  /* Spacing */
+  --radius: 12px;
+  --transition-speed: 0.25s;
+  --glass-blur: blur(12px);
+}
+
+/* ── Light theme (default) ── */
+[data-theme="light"] {
+  /* Colors — WCAG AA: #213547 on #f0f2f5 = 10.5:1, #4b5c6b on #f0f2f5 = 5.7:1 */
+  --color-text: #213547;
+  --color-text-muted: #4b5c6b;
+  --color-bg: #f0f2f5;
+  --color-bg-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  --color-border: rgba(0, 0, 0, 0.1);
+
+  /* Glassmorphism surfaces */
+  --glass-bg: rgba(255, 255, 255, 0.65);
+  --glass-border: rgba(255, 255, 255, 0.3);
+  --glass-shadow: 0 8px 32px rgba(31, 38, 135, 0.12);
+
+  /* Toast colors */
+  --toast-success-bg: rgba(16, 185, 129, 0.9);
+  --toast-error-bg: rgba(239, 68, 68, 0.9);
+  --toast-info-bg: rgba(59, 130, 246, 0.9);
+  --toast-text: #fff;
+
+  /* Skeleton */
+  --skeleton-base: rgba(0, 0, 0, 0.08);
+  --skeleton-shine: rgba(0, 0, 0, 0.04);
+
+  /* Focus */
+  --focus-ring: #667eea;
+}
+
+/* ── Dark theme ── */
+[data-theme="dark"] {
+  /* Colors — WCAG AA: #e2e8f0 on #0f172a = 13.5:1, #94a3b8 on #0f172a = 6.4:1 */
+  --color-text: #e2e8f0;
+  --color-text-muted: #94a3b8;
+  --color-bg: #0f172a;
+  --color-bg-gradient: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%);
+  --color-border: rgba(255, 255, 255, 0.1);
+
+  /* Glassmorphism surfaces */
+  --glass-bg: rgba(30, 41, 59, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+
+  /* Toast colors */
+  --toast-success-bg: rgba(16, 185, 129, 0.85);
+  --toast-error-bg: rgba(239, 68, 68, 0.85);
+  --toast-info-bg: rgba(59, 130, 246, 0.85);
+  --toast-text: #fff;
+
+  /* Skeleton */
+  --skeleton-base: rgba(255, 255, 255, 0.08);
+  --skeleton-shine: rgba(255, 255, 255, 0.04);
+
+  /* Focus */
+  --focus-ring: #818cf8;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  min-height: 100vh;
+  color: var(--color-text);
+  background: var(--color-bg);
+  background-image: var(--color-bg-gradient);
+  background-attachment: fixed;
+  transition:
+    color var(--transition-speed) ease,
+    background-color var(--transition-speed) ease;
+}
+
+/* Smooth theme transition on glass surfaces */
+.glass {
+  transition:
+    background var(--transition-speed) ease,
+    border-color var(--transition-speed) ease,
+    box-shadow var(--transition-speed) ease;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+/* ── Glass card utility ── */
+.glass {
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  box-shadow: var(--glass-shadow);
+}
+
+/* ── Reduced motion ── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ── Responsive container ── */
+.container {
+  width: 100%;
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
+@media (max-width: 768px) {
+  .container {
+    padding: 0 0.75rem;
+  }
+}
+
+/* ── Toast notifications ── */
+.toast-container {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-width: 380px;
+  width: 100%;
+  pointer-events: none;
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius);
+  color: var(--toast-text);
+  font-size: 0.875rem;
+  font-weight: 500;
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  box-shadow: var(--glass-shadow);
+  pointer-events: auto;
+  animation: toast-in var(--transition-speed) ease-out;
+}
+
+.toast--success {
+  background: var(--toast-success-bg);
+}
+.toast--error {
+  background: var(--toast-error-bg);
+}
+.toast--info {
+  background: var(--toast-info-bg);
+}
+
+.toast__close {
+  background: none;
+  border: none;
+  color: inherit;
+  font-size: 1.25rem;
+  cursor: pointer;
+  padding: 0 0.25rem;
+  line-height: 1;
+  opacity: 0.8;
+  transition: opacity var(--transition-speed);
+}
+
+.toast__close:hover,
+.toast__close:focus-visible {
+  opacity: 1;
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateX(1rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* ── Skeleton loader ── */
+.skeleton {
+  background: var(--skeleton-base);
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
+}
+
+.skeleton + .skeleton {
+  margin-top: 0.5rem;
+}
+
+@keyframes skeleton-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+/* ── Focus visible ── */
+:focus-visible {
+  outline: 2px solid var(--focus-ring, #667eea);
+  outline-offset: 2px;
+}
+
+/* ── Screen-reader only utility ── */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ── App header ── */
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+}
+
+.app-header__title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+/* ── Theme toggle (segmented button) ── */
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  border: none;
+  padding: 3px;
+  margin: 0;
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border-radius: var(--radius);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+}
+
+.theme-toggle__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.75rem;
+  border: none;
+  border-radius: calc(var(--radius) - 3px);
+  background: transparent;
+  color: var(--color-text-muted);
+  font-family: inherit;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    background var(--transition-speed) ease,
+    color var(--transition-speed) ease,
+    box-shadow var(--transition-speed) ease;
+  white-space: nowrap;
+  line-height: 1;
+}
+
+.theme-toggle__btn:hover {
+  color: var(--color-text);
+}
+
+.theme-toggle__btn--active {
+  background: var(--glass-bg);
+  color: var(--color-text);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+}
+
+.theme-toggle__btn:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -1px;
+}
+
+.theme-toggle__icon {
+  font-size: 0.875rem;
+  line-height: 1;
+}
+
+.theme-toggle__label {
+  line-height: 1;
+}
+
+@media (max-width: 480px) {
+  .theme-toggle__label {
+    display: none;
+  }
+
+  .theme-toggle__btn {
+    padding: 0.4rem 0.5rem;
+  }
+}

@@ -220,14 +220,14 @@ Incremental implementation of the Go URL Alias Service — an internal URL alias
   - Ensure all tests pass, ask the user if questions arise.
 
 - [ ] 10. React SPA scaffolding and design system
-  - [ ] 10.1 Initialize React app with TypeScript
+  - [x] 10.1 Initialize React app with TypeScript
     - Set up project in root directory with Vite or Create React App
     - Install dependencies: React, React Router, CSS modules or styled-components
     - Configure Inter font family with system font fallback
     - Configure Vite dev server proxy to forward `/api/*` requests to `http://localhost:7071` (local Azure Functions runtime)
     - _Requirements: 8.4, 12.3, 16.7, 16.8_
 
-  - [ ] 10.2 Implement glassmorphism design system and shared components
+  - [x] 10.2 Implement glassmorphism design system and shared components
     - Create CSS variables/theme for glassmorphism: `backdrop-filter: blur(12px)`, semi-transparent backgrounds, subtle gradients
     - Implement `ToastProvider` component with animated toast notifications (success, error, info)
     - Implement `SkeletonLoader` component for placeholder loading states
@@ -237,7 +237,7 @@ Incremental implementation of the Go URL Alias Service — an internal URL alias
     - Responsive layout for desktop and tablet viewports
     - _Requirements: 12.1, 12.2, 12.4, 12.5, 12.6, 12.7, 12.9_
 
-  - [ ] 10.3 Implement light/dark mode theme system
+  - [x] 10.3 Implement light/dark mode theme system
     - Define light and dark theme CSS custom properties (colors, backgrounds, borders, shadows, glassmorphism opacities) scoped to a `data-theme` attribute on the root HTML element
     - Create a `ThemeProvider` context/hook (`useTheme`) that manages the active Theme_Mode (`light`, `dark`, `system`)
     - On initial load, read `go-theme-preference` from `localStorage`; default to `system` if not set
@@ -248,7 +248,7 @@ Incremental implementation of the Go URL Alias Service — an internal URL alias
     - Maintain WCAG AA contrast ratios (4.5:1 normal text, 3:1 large text) in both themes
     - _Requirements: 17.1, 17.3, 17.4, 17.5, 17.6, 17.7, 17.8, 17.9, 17.10, 17.11_
 
-  - [ ] 10.4 Implement Theme_Toggle component
+  - [x] 10.4 Implement Theme_Toggle component
     - Create a Theme_Toggle control (e.g., segmented button or dropdown) with three options: Light, Dark, System
     - Place the Theme_Toggle in the main navigation or header area
     - Wire the toggle to the `useTheme` hook to update Theme_Mode and persist to `localStorage`
