@@ -2,6 +2,8 @@ import { useCallback, useState } from "react";
 import { Route, Routes } from "react-router-dom";
 import { AliasListPage } from "./components/AliasListPage";
 import { CreateEditModal } from "./components/CreateEditModal";
+import { InterstitialPage } from "./components/InterstitialPage";
+import { KitchenSinkPage } from "./components/KitchenSinkPage";
 import { PopularLinks } from "./components/PopularLinks";
 import { ThemeToggle } from "./components/ThemeToggle";
 import type { AliasRecord } from "./services/api";
@@ -51,6 +53,8 @@ function App() {
       <main className="container">
         <Routes>
           <Route path="/" element={<Dashboard />} />
+          <Route path="/interstitial" element={<InterstitialPage />} />
+          <Route path="/kitchen-sink" element={<KitchenSinkPage />} />
         </Routes>
       </main>
     </>

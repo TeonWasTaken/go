@@ -1098,3 +1098,182 @@ body {
   font-style: italic;
   margin-top: 0.25rem;
 }
+
+/* ── Interstitial conflict resolution page ── */
+.interstitial {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  padding: 2rem 1rem;
+}
+
+.interstitial__card {
+  max-width: 520px;
+  width: 100%;
+  padding: 2.5rem;
+  text-align: center;
+}
+
+.interstitial__heading {
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin-bottom: 0.5rem;
+  color: var(--color-text);
+}
+
+.interstitial__subtitle {
+  font-size: 0.9375rem;
+  color: var(--color-text-muted);
+  margin-bottom: 1.5rem;
+}
+
+.interstitial__option {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+  margin-bottom: 0.75rem;
+  text-decoration: none;
+  color: var(--color-text);
+  transition:
+    transform var(--transition-speed) ease,
+    box-shadow var(--transition-speed) ease,
+    filter var(--transition-speed) ease;
+}
+
+.interstitial__option:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(31, 38, 135, 0.2);
+  filter: brightness(1.05);
+}
+
+[data-theme="dark"] .interstitial__option:hover {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.interstitial__option--private {
+  border-left: 3px solid var(--color-accent);
+}
+
+.interstitial__option--global {
+  border-left: 3px solid var(--color-primary);
+}
+
+.interstitial__option-label {
+  font-weight: 600;
+  font-size: 0.875rem;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.interstitial__option-url {
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+  word-break: break-all;
+  text-align: left;
+}
+
+.interstitial__countdown {
+  margin-top: 1.25rem;
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+}
+
+.interstitial__seconds {
+  font-weight: 700;
+  color: var(--color-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Kitchen Sink dev page ── */
+.kitchen-sink {
+  padding-bottom: 4rem;
+}
+
+.kitchen-sink__title {
+  font-size: 1.75rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin-bottom: 0.25rem;
+  color: var(--color-text);
+}
+
+.kitchen-sink__intro {
+  font-size: 0.9375rem;
+  color: var(--color-text-muted);
+  margin-bottom: 2rem;
+  max-width: 640px;
+}
+
+.kitchen-sink__section {
+  margin-bottom: 2.5rem;
+}
+
+.kitchen-sink__heading {
+  font-size: 1.125rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin-bottom: 0.25rem;
+  color: var(--color-text);
+}
+
+.kitchen-sink__desc {
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+  margin-bottom: 0.75rem;
+}
+
+.kitchen-sink__desc code,
+.kitchen-sink__desc kbd {
+  font-size: 0.75rem;
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.06);
+  border: 1px solid var(--color-border);
+}
+
+[data-theme="dark"] .kitchen-sink__desc code,
+[data-theme="dark"] .kitchen-sink__desc kbd {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.kitchen-sink__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.kitchen-sink__cards {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.kitchen-sink__palette {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.kitchen-sink__swatch {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.kitchen-sink__swatch-color {
+  width: 3rem;
+  height: 3rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--glass-shadow);
+}
+
+.kitchen-sink__swatch-label {
+  font-size: 0.625rem;
+  color: var(--color-text-muted);
+}
