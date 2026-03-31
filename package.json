@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:api": "cd api && npm run prestart && npm start",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "test": "vitest --run"
