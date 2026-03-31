@@ -256,18 +256,18 @@ Incremental implementation of the Go URL Alias Service — an internal URL alias
     - Include ARIA labels and keyboard accessibility for the toggle control
     - _Requirements: 17.2, 17.3, 17.6_
 
-- [ ] 11. Management Dashboard core pages
-  - [ ] 11.1 Implement API client service (`src/services/api.ts`)
+- [x] 11. Management Dashboard core pages
+  - [x] 11.1 Implement API client service (`src/services/api.ts`)
     - Create typed API client for all `/api/links` endpoints (GET, POST, PUT, DELETE, renew)
     - Handle error responses and surface user-readable messages for toast display
     - _Requirements: 4.9_
 
-  - [ ] 11.2 Implement `SearchBar` component
+  - [x] 11.2 Implement `SearchBar` component
     - Debounced search input (300ms) filtering by alias or title
     - Support `/` keyboard shortcut to focus search bar
     - _Requirements: 4.3, 12.8_
 
-  - [ ] 11.3 Implement `AliasListPage` with `AliasCard` components
+  - [x] 11.3 Implement `AliasListPage` with `AliasCard` components
     - Display searchable list of global + user's private aliases
     - Show `click_count`, `last_accessed_at`, `expiry_status`, `expires_at` per alias
     - Display "Personal" badge on private aliases
@@ -277,13 +277,13 @@ Incremental implementation of the Go URL Alias Service — an internal URL alias
     - Ensure all components (badges, status indicators, cards) render correctly in both light and dark themes
     - _Requirements: 4.1, 4.10, 4.11, 4.12, 4.14, 4.15, 4.17, 17.12_
 
-  - [ ] 11.4 Implement `PopularLinks` component
+  - [x] 11.4 Implement `PopularLinks` component
     - Display top 10 global aliases ranked by heat score
     - Show alias name, title, and visual heat indicator
     - Fetch from `/api/links?scope=popular`
     - _Requirements: 4.2, 15.6, 15.7, 15.8_
 
-  - [ ] 11.5 Implement `CreateEditModal` with `ExpiryPolicySelector`
+  - [x] 11.5 Implement `CreateEditModal` with `ExpiryPolicySelector`
     - Form for creating/editing aliases with fields: alias, destination URL, title, global/personal toggle
     - Display aliases in lowercase in forms
     - Two-step expiry policy selector: type selection (Never, Expire on date, After inactivity) -> for "Expire on date": preset durations (1, 3, 12 months) + custom date picker; for "After inactivity": info note about 12-month inactivity window
@@ -293,7 +293,7 @@ Incremental implementation of the Go URL Alias Service — an internal URL alias
     - Display toast on API errors
     - _Requirements: 4.4, 4.5, 4.6, 4.7, 4.13, 4.18_
 
-  - [ ] 11.6 Implement delete confirmation and renew action
+  - [x] 11.6 Implement delete confirmation and renew action
     - Delete: confirmation prompt -> DELETE `/api/links/:alias` -> remove from list
     - Renew: PUT `/api/links/:alias/renew` -> update displayed expiry status to active
     - Display toast on API errors
