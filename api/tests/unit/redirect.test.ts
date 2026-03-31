@@ -154,7 +154,7 @@ describe("redirect handler", () => {
     expect((res.headers as any).location).toBe("https://private.example.com/");
   });
 
-  it("returns interstitial HTML when both private and global exist", async () => {
+  it("returns 302 redirect to interstitial route when both private and global exist", async () => {
     const priv = makeAlias({
       id: "docs:alice@example.com",
       alias: "docs",
@@ -173,10 +173,12 @@ describe("redirect handler", () => {
       return undefined;
     });
     const res = await redirectHandler(makeRequest("docs"), makeContext());
-    expect(res.status).toBe(200);
-    expect((res.headers as any)["content-type"]).toContain("text/html");
-    expect(res.body).toContain("private.example.com");
-    expect(res.body).toContain("global.example.com");
+    expect(res.status).toBe(302);
+    const location = (res.headers as any).location as string;
+    expect(location).toContain("/interstitial");
+    expect(location).toContain("privateUrl=");
+    expect(location).toContain("globalUrl=");
+    expect(location).toContain("alias=docs");
   });
 
   it("normalizes alias to lowercase", async () => {

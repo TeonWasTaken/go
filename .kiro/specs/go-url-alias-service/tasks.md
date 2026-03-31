@@ -219,7 +219,7 @@ Incremental implementation of the Go URL Alias Service — an internal URL alias
 - [x] 9. Checkpoint - Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 10. React SPA scaffolding and design system
+- [x] 10. React SPA scaffolding and design system
   - [x] 10.1 Initialize React app with TypeScript
     - Set up project in root directory with Vite or Create React App
     - Install dependencies: React, React Router, CSS modules or styled-components
@@ -299,8 +299,8 @@ Incremental implementation of the Go URL Alias Service — an internal URL alias
     - Display toast on API errors
     - _Requirements: 4.8, 4.16_
 
-- [ ] 12. Interstitial conflict resolution page
-  - [ ] 12.1 Implement `InterstitialPage` component
+- [x] 12. Interstitial conflict resolution page
+  - [x] 12.1 Implement `InterstitialPage` component
     - Display private alias destination and global alias destination as two distinct options
     - Auto-redirect to private destination after 5 seconds with visible countdown timer
     - Provide clickable links to either destination, cancelling auto-redirect on click
@@ -308,7 +308,7 @@ Incremental implementation of the Go URL Alias Service — an internal URL alias
     - Ensure the interstitial page renders correctly in both light and dark themes
     - _Requirements: 13.1, 13.2, 13.3, 13.4, 13.5, 13.6, 17.12_
 
-- [ ] 13. Final checkpoint - Ensure all tests pass
+- [x] 13. Final checkpoint - Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
 ## Notes

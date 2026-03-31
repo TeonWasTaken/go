@@ -20,104 +20,6 @@ import { AliasRecord } from "../shared/models.js";
 import { mergeUrls } from "../shared/url-utils.js";
 
 // ---------------------------------------------------------------------------
-// Interstitial HTML template
-// ---------------------------------------------------------------------------
-
-function buildInterstitialHtml(
-  alias: string,
-  privateUrl: string,
-  globalUrl: string,
-): string {
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>go/${alias} — Choose Destination</title>
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: 'Inter', system-ui, -apple-system, sans-serif;
-      min-height: 100vh;
-      display: flex; align-items: center; justify-content: center;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: #1a1a2e;
-    }
-    .card {
-      background: rgba(255,255,255,0.15);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-      border: 1px solid rgba(255,255,255,0.25);
-      border-radius: 16px;
-      padding: 2.5rem;
-      max-width: 520px;
-      width: 90%;
-      text-align: center;
-      color: #fff;
-    }
-    h1 { font-size: 1.4rem; margin-bottom: 0.5rem; }
-    .subtitle { font-size: 0.9rem; opacity: 0.85; margin-bottom: 1.5rem; }
-    .option {
-      display: block;
-      padding: 0.9rem 1.2rem;
-      margin: 0.6rem 0;
-      border-radius: 10px;
-      text-decoration: none;
-      font-weight: 500;
-      transition: transform 0.15s, box-shadow 0.15s;
-    }
-    .option:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
-    .option.private { background: rgba(255,255,255,0.25); color: #fff; }
-    .option.global  { background: rgba(255,255,255,0.12); color: #fff; }
-    .countdown { margin-top: 1.2rem; font-size: 0.85rem; opacity: 0.8; }
-    @media (prefers-reduced-motion: reduce) {
-      .option { transition: none; }
-    }
-  </style>
-</head>
-<body>
-  <div class="card">
-    <h1>go/${alias}</h1>
-    <p class="subtitle">This alias exists as both a personal and a global link.</p>
-    <a class="option private" id="private-link" href="${escapeHtml(privateUrl)}">
-      Personal → ${escapeHtml(truncateUrl(privateUrl))}
-    </a>
-    <a class="option global" id="global-link" href="${escapeHtml(globalUrl)}">
-      Global → ${escapeHtml(truncateUrl(globalUrl))}
-    </a>
-    <p class="countdown" id="countdown">Redirecting to your personal link in <span id="seconds">5</span>s…</p>
-  </div>
-  <script>
-    let remaining = 5;
-    const timer = setInterval(() => {
-      remaining--;
-      document.getElementById('seconds').textContent = remaining;
-      if (remaining <= 0) {
-        clearInterval(timer);
-        window.location.href = ${JSON.stringify(privateUrl)};
-      }
-    }, 1000);
-    document.querySelectorAll('.option').forEach(link => {
-      link.addEventListener('click', () => clearInterval(timer));
-    });
-  </script>
-</body>
-</html>`;
-}
-
-function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
-function truncateUrl(url: string, max = 60): string {
-  return url.length > max ? url.slice(0, max) + "…" : url;
-}
-
-// ---------------------------------------------------------------------------
 // Analytics + expiry side-effects
 // ---------------------------------------------------------------------------
 
@@ -262,16 +164,16 @@ export async function redirectHandler(
         incomingFragment,
       );
 
-      const html = buildInterstitialHtml(
-        alias,
-        privateDestination,
-        globalDestination,
-      );
+      // Redirect to the SPA interstitial route so the themed React component
+      // handles the conflict resolution UI.
+      const interstitialUrl =
+        `/interstitial?alias=${encodeURIComponent(alias)}` +
+        `&privateUrl=${encodeURIComponent(privateDestination)}` +
+        `&globalUrl=${encodeURIComponent(globalDestination)}`;
 
       return {
-        status: 200,
-        headers: { "content-type": "text/html; charset=utf-8" },
-        body: html,
+        status: 302,
+        headers: { location: interstitialUrl },
       };
     }
 

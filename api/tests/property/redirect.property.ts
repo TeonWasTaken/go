@@ -233,7 +233,7 @@ describe("Property 1: Alias resolution follows private-first precedence", () => 
     );
   });
 
-  it("returns interstitial (200) when both private and global exist", async () => {
+  it("returns 302 redirect to interstitial route when both private and global exist", async () => {
     await fc.assert(
       fc.asyncProperty(
         aliasArb,
@@ -264,9 +264,12 @@ describe("Property 1: Alias resolution follows private-first precedence", () => 
           });
 
           const res = await redirectHandler(makeRequest(alias), makeContext());
-          expect(res.status).toBe(200);
-          expect((res.headers as any)["content-type"]).toContain("text/html");
-          expect(res.body).toBeTruthy();
+          expect(res.status).toBe(302);
+          const location = (res.headers as Record<string, string>).location;
+          expect(location).toContain("/interstitial");
+          expect(location).toContain("alias=");
+          expect(location).toContain("privateUrl=");
+          expect(location).toContain("globalUrl=");
         },
       ),
       { numRuns: 50 },
