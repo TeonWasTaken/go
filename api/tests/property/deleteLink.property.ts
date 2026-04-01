@@ -8,6 +8,7 @@
 import type { HttpRequest, InvocationContext } from "@azure/functions";
 import fc from "fast-check";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { AuthStrategy } from "../../src/shared/auth-strategy.js";
 import type { AliasRecord } from "../../src/shared/models.js";
 
 // ---------------------------------------------------------------------------
@@ -23,12 +24,7 @@ vi.mock("../../src/shared/cosmos-client.js", () => ({
   deleteAlias: vi.fn(),
 }));
 
-vi.mock("../../src/shared/auth-provider.js", () => ({
-  createAuthProvider: vi.fn(),
-}));
-
-import { deleteLinkHandler } from "../../src/functions/deleteLink.js";
-import { createAuthProvider } from "../../src/shared/auth-provider.js";
+import { createDeleteLinkHandler } from "../../src/functions/deleteLink.js";
 import {
   deleteAlias,
   getAliasByPartition,
@@ -36,7 +32,6 @@ import {
 
 const mockGetAlias = vi.mocked(getAliasByPartition);
 const mockDeleteAlias = vi.mocked(deleteAlias);
-const mockCreateAuthProvider = vi.mocked(createAuthProvider);
 
 // ---------------------------------------------------------------------------
 // Generators
@@ -62,6 +57,20 @@ const emailArb = fc
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+function makeStrategy(email: string, roles: string[]): AuthStrategy {
+  return {
+    mode: "dev",
+    redirectRequiresAuth: false,
+    identityProviders: ["dev"],
+    extractIdentity: (headers: Record<string, string>) => ({
+      email: headers["x-mock-user-email"] || email,
+      roles: (headers["x-mock-user-roles"] || roles.join(","))
+        .split(",")
+        .map((s: string) => s.trim()),
+    }),
+  };
+}
 
 function makeRequest(
   alias: string,
@@ -107,18 +116,8 @@ function makeAlias(overrides: Partial<AliasRecord> = {}): AliasRecord {
     expires_at: new Date(Date.now() + 86400_000 * 365).toISOString(),
     expiry_status: "active",
     expired_at: null,
+    icon_url: null,
     ...overrides,
-  };
-}
-
-function makeAuthProvider(email: string, roles: string[]) {
-  return {
-    extractIdentity: (headers: Record<string, string>) => ({
-      email: headers["x-mock-user-email"] || email,
-      roles: (headers["x-mock-user-roles"] || roles.join(","))
-        .split(",")
-        .map((s: string) => s.trim()),
-    }),
   };
 }
 
@@ -128,9 +127,6 @@ function makeAuthProvider(email: string, roles: string[]) {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mockCreateAuthProvider.mockReturnValue(
-    makeAuthProvider("alice@example.com", ["User"]),
-  );
   mockDeleteAlias.mockResolvedValue(undefined);
 });
 
@@ -151,9 +147,6 @@ describe("Property 14: Delete removes the record", () => {
     await fc.assert(
       fc.asyncProperty(aliasArb, emailArb, async (alias, creatorEmail) => {
         vi.clearAllMocks();
-        mockCreateAuthProvider.mockReturnValue(
-          makeAuthProvider(creatorEmail, ["User"]),
-        );
         mockDeleteAlias.mockResolvedValue(undefined);
 
         const existing = makeAlias({
@@ -169,7 +162,10 @@ describe("Property 14: Delete removes the record", () => {
           return undefined;
         });
 
-        const res = await deleteLinkHandler(
+        const handler = createDeleteLinkHandler(
+          makeStrategy(creatorEmail, ["User"]),
+        );
+        const res = await handler(
           makeRequest(alias, creatorEmail),
           makeContext(),
         );
@@ -186,9 +182,6 @@ describe("Property 14: Delete removes the record", () => {
     await fc.assert(
       fc.asyncProperty(aliasArb, emailArb, async (alias, creatorEmail) => {
         vi.clearAllMocks();
-        mockCreateAuthProvider.mockReturnValue(
-          makeAuthProvider(creatorEmail, ["User"]),
-        );
         mockDeleteAlias.mockResolvedValue(undefined);
 
         const compositeId = `${alias}:${creatorEmail}`;
@@ -204,7 +197,10 @@ describe("Property 14: Delete removes the record", () => {
           return undefined;
         });
 
-        const res = await deleteLinkHandler(
+        const handler = createDeleteLinkHandler(
+          makeStrategy(creatorEmail, ["User"]),
+        );
+        const res = await handler(
           makeRequest(alias, creatorEmail),
           makeContext(),
         );
@@ -225,9 +221,6 @@ describe("Property 14: Delete removes the record", () => {
         fc.boolean(),
         async (alias, creatorEmail, isPrivate) => {
           vi.clearAllMocks();
-          mockCreateAuthProvider.mockReturnValue(
-            makeAuthProvider(creatorEmail, ["User"]),
-          );
           mockDeleteAlias.mockResolvedValue(undefined);
 
           const id = isPrivate ? `${alias}:${creatorEmail}` : alias;
@@ -253,15 +246,18 @@ describe("Property 14: Delete removes the record", () => {
             deleted = true;
           });
 
+          const strategy = makeStrategy(creatorEmail, ["User"]);
+          const handler = createDeleteLinkHandler(strategy);
+
           // First call: delete succeeds
-          const res = await deleteLinkHandler(
+          const res = await handler(
             makeRequest(alias, creatorEmail),
             makeContext(),
           );
           expect(res.status).toBe(204);
 
           // Second call: record is gone, should return 404
-          const res2 = await deleteLinkHandler(
+          const res2 = await handler(
             makeRequest(alias, creatorEmail),
             makeContext(),
           );
@@ -276,14 +272,14 @@ describe("Property 14: Delete removes the record", () => {
     await fc.assert(
       fc.asyncProperty(aliasArb, emailArb, async (alias, requesterEmail) => {
         vi.clearAllMocks();
-        mockCreateAuthProvider.mockReturnValue(
-          makeAuthProvider(requesterEmail, ["User"]),
-        );
         mockDeleteAlias.mockResolvedValue(undefined);
 
         mockGetAlias.mockResolvedValue(undefined);
 
-        const res = await deleteLinkHandler(
+        const handler = createDeleteLinkHandler(
+          makeStrategy(requesterEmail, ["User"]),
+        );
+        const res = await handler(
           makeRequest(alias, requesterEmail),
           makeContext(),
         );

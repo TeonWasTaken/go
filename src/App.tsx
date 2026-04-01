@@ -1,4 +1,10 @@
-import { useCallback, useEffect } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
+} from "react";
 import {
   NavLink,
   Route,
@@ -17,6 +23,13 @@ import { ManagePage } from "./components/ManagePage";
 import { SearchBar } from "./components/SearchBar";
 import { useTheme } from "./components/ThemeProvider";
 import { ThemeToggle } from "./components/ThemeToggle";
+import { type AuthConfigResponse, getAuthConfig } from "./services/api";
+
+export const AuthConfigContext = createContext<AuthConfigResponse | null>(null);
+
+export function useAuthConfig(): AuthConfigResponse | null {
+  return useContext(AuthConfigContext);
+}
 
 /** Catch-all: forward unknown paths to the redirect API (mirrors SWA config in dev). */
 function AliasRedirect() {
@@ -38,6 +51,20 @@ function App() {
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const { resolved: theme } = useTheme();
+  const [authConfig, setAuthConfig] = useState<AuthConfigResponse | null>(null);
+
+  useEffect(() => {
+    getAuthConfig()
+      .then(setAuthConfig)
+      .catch(() => {
+        // In dev mode, fall back to a dev config so the app works without the API
+        setAuthConfig({
+          mode: "dev",
+          identityProviders: ["dev"],
+          loginUrl: "",
+        });
+      });
+  }, []);
 
   const isManagePage = location.pathname === "/manage";
   const isAppRoute = [
@@ -77,7 +104,7 @@ function App() {
   );
 
   return (
-    <>
+    <AuthConfigContext.Provider value={authConfig}>
       {isAppRoute && (
         <header className="app-header container">
           <NavLink to="/" className="app-header__title">
@@ -111,7 +138,7 @@ function App() {
           <Route path="/*" element={<AliasRedirect />} />
         </Routes>
       </main>
-    </>
+    </AuthConfigContext.Provider>
   );
 }
 

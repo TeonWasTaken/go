@@ -10,6 +10,7 @@
 import type { HttpRequest, InvocationContext } from "@azure/functions";
 import fc from "fast-check";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { AuthStrategy } from "../../src/shared/auth-strategy.js";
 import type { AliasRecord } from "../../src/shared/models.js";
 
 // ---------------------------------------------------------------------------
@@ -25,12 +26,7 @@ vi.mock("../../src/shared/cosmos-client.js", () => ({
   updateAlias: vi.fn(),
 }));
 
-vi.mock("../../src/shared/auth-provider.js", () => ({
-  createAuthProvider: vi.fn(),
-}));
-
-import { redirectHandler } from "../../src/functions/redirect.js";
-import { createAuthProvider } from "../../src/shared/auth-provider.js";
+import { createRedirectHandler } from "../../src/functions/redirect.js";
 import {
   getAliasByPartition,
   updateAlias,
@@ -38,7 +34,6 @@ import {
 
 const mockGetAlias = vi.mocked(getAliasByPartition);
 const mockUpdateAlias = vi.mocked(updateAlias);
-const mockCreateAuthProvider = vi.mocked(createAuthProvider);
 
 // ---------------------------------------------------------------------------
 // Generators
@@ -87,6 +82,15 @@ const baseDateArb = fc
 // Helpers
 // ---------------------------------------------------------------------------
 
+function makeMockStrategy(email: string): AuthStrategy {
+  return {
+    mode: "dev",
+    redirectRequiresAuth: false,
+    identityProviders: ["dev"],
+    extractIdentity: () => ({ email, roles: ["User"] }),
+  };
+}
+
 function makeRequest(alias: string, opts?: { query?: string }): HttpRequest {
   const url = `https://go.example.com/${alias}${opts?.query ?? ""}`;
   const headers = new Headers({
@@ -132,19 +136,12 @@ function makeAlias(overrides: Partial<AliasRecord>): AliasRecord {
       new Date(Date.now() + 86400_000 * 300).toISOString(),
     expiry_status: overrides.expiry_status ?? "active",
     expired_at: overrides.expired_at ?? null,
+    icon_url: null,
   };
 }
 
-/**
- * Configure mock auth to return the given email.
- * Also sets up mockGetAlias to return undefined by default and
- * mockUpdateAlias to resolve.
- */
 function resetMocks(email: string): void {
   vi.clearAllMocks();
-  mockCreateAuthProvider.mockReturnValue({
-    extractIdentity: () => ({ email, roles: ["User"] }),
-  });
   mockUpdateAlias.mockResolvedValue(undefined as any);
   mockGetAlias.mockResolvedValue(undefined);
 }
@@ -178,6 +175,7 @@ describe("Property 1: Alias resolution follows private-first precedence", () => 
         destinationUrlArb,
         async (alias, email, destUrl) => {
           resetMocks(email);
+          const strategy = makeMockStrategy(email);
 
           const priv = makeAlias({
             id: `${alias}:${email}`,
@@ -192,7 +190,8 @@ describe("Property 1: Alias resolution follows private-first precedence", () => 
             return undefined;
           });
 
-          const res = await redirectHandler(makeRequest(alias), makeContext());
+          const handler = createRedirectHandler(strategy);
+          const res = await handler(makeRequest(alias), makeContext());
           expect(res.status).toBe(302);
           const loc = (res.headers as Record<string, string>).location;
           expect(loc).toContain(new URL(destUrl).hostname);
@@ -210,6 +209,7 @@ describe("Property 1: Alias resolution follows private-first precedence", () => 
         destinationUrlArb,
         async (alias, email, destUrl) => {
           resetMocks(email);
+          const strategy = makeMockStrategy(email);
 
           const global = makeAlias({
             id: alias,
@@ -223,7 +223,8 @@ describe("Property 1: Alias resolution follows private-first precedence", () => 
             return undefined;
           });
 
-          const res = await redirectHandler(makeRequest(alias), makeContext());
+          const handler = createRedirectHandler(strategy);
+          const res = await handler(makeRequest(alias), makeContext());
           expect(res.status).toBe(302);
           const loc = (res.headers as Record<string, string>).location;
           expect(loc).toContain(new URL(destUrl).hostname);
@@ -242,6 +243,7 @@ describe("Property 1: Alias resolution follows private-first precedence", () => 
         destinationUrlArb,
         async (alias, email, privUrl, globalUrl) => {
           resetMocks(email);
+          const strategy = makeMockStrategy(email);
 
           const priv = makeAlias({
             id: `${alias}:${email}`,
@@ -263,7 +265,8 @@ describe("Property 1: Alias resolution follows private-first precedence", () => 
             return undefined;
           });
 
-          const res = await redirectHandler(makeRequest(alias), makeContext());
+          const handler = createRedirectHandler(strategy);
+          const res = await handler(makeRequest(alias), makeContext());
           expect(res.status).toBe(302);
           const location = (res.headers as Record<string, string>).location;
           expect(location).toContain("/interstitial");
@@ -280,9 +283,10 @@ describe("Property 1: Alias resolution follows private-first precedence", () => 
     await fc.assert(
       fc.asyncProperty(aliasArb, emailArb, async (alias, email) => {
         resetMocks(email);
-        // mockGetAlias already defaults to undefined
+        const strategy = makeMockStrategy(email);
 
-        const res = await redirectHandler(makeRequest(alias), makeContext());
+        const handler = createRedirectHandler(strategy);
+        const res = await handler(makeRequest(alias), makeContext());
         expect(res.status).toBe(302);
         const loc = (res.headers as Record<string, string>).location;
         expect(loc).toContain(`suggest=${encodeURIComponent(alias)}`);
@@ -300,10 +304,10 @@ describe("Property 1: Alias resolution follows private-first precedence", () => 
         async (alias, requestingUser, otherUser) => {
           fc.pre(requestingUser !== otherUser);
           resetMocks(requestingUser);
-          // Handler queries for ${alias}:${requestingUser} and ${alias}
-          // Neither matches since the alias belongs to otherUser
+          const strategy = makeMockStrategy(requestingUser);
 
-          const res = await redirectHandler(makeRequest(alias), makeContext());
+          const handler = createRedirectHandler(strategy);
+          const res = await handler(makeRequest(alias), makeContext());
           expect(res.status).toBe(302);
           const loc = (res.headers as Record<string, string>).location;
           expect(loc).toContain("suggest=");
@@ -318,10 +322,6 @@ describe("Property 1: Alias resolution follows private-first precedence", () => 
 describe("Property 3: Successful redirect increments analytics", () => {
   /**
    * Validates: Requirements 1.8, 1.9, 1.10, 6.1, 6.2, 6.3, 15.2, 15.5
-   *
-   * For any alias that is successfully redirected, the click_count should
-   * increase by exactly 1, last_accessed_at should be updated, and heat_score
-   * should be updated by applying exponential decay plus 1.0.
    */
 
   it("click_count increments by exactly 1 on successful redirect", async () => {
@@ -331,6 +331,7 @@ describe("Property 3: Successful redirect increments analytics", () => {
         clickCountArb,
         async (alias, initialClicks) => {
           resetMocks("testuser@example.com");
+          const strategy = makeMockStrategy("testuser@example.com");
 
           const record = makeAlias({
             id: alias,
@@ -343,7 +344,8 @@ describe("Property 3: Successful redirect increments analytics", () => {
             return undefined;
           });
 
-          await redirectHandler(makeRequest(alias), makeContext());
+          const handler = createRedirectHandler(strategy);
+          await handler(makeRequest(alias), makeContext());
           expect(mockUpdateAlias).toHaveBeenCalledTimes(1);
           const updated = mockUpdateAlias.mock.calls[0][0];
           expect(updated.click_count).toBe(initialClicks + 1);
@@ -357,6 +359,7 @@ describe("Property 3: Successful redirect increments analytics", () => {
     await fc.assert(
       fc.asyncProperty(aliasArb, async (alias) => {
         resetMocks("testuser@example.com");
+        const strategy = makeMockStrategy("testuser@example.com");
 
         const record = makeAlias({
           id: alias,
@@ -370,7 +373,8 @@ describe("Property 3: Successful redirect increments analytics", () => {
         });
 
         const before = Date.now();
-        await redirectHandler(makeRequest(alias), makeContext());
+        const handler = createRedirectHandler(strategy);
+        await handler(makeRequest(alias), makeContext());
 
         expect(mockUpdateAlias).toHaveBeenCalledTimes(1);
         const updated = mockUpdateAlias.mock.calls[0][0];
@@ -391,6 +395,7 @@ describe("Property 3: Successful redirect increments analytics", () => {
         baseDateArb,
         async (alias, initialHeat, heatUpdatedDate) => {
           resetMocks("testuser@example.com");
+          const strategy = makeMockStrategy("testuser@example.com");
 
           const record = makeAlias({
             id: alias,
@@ -404,10 +409,10 @@ describe("Property 3: Successful redirect increments analytics", () => {
             return undefined;
           });
 
-          await redirectHandler(makeRequest(alias), makeContext());
+          const handler = createRedirectHandler(strategy);
+          await handler(makeRequest(alias), makeContext());
           expect(mockUpdateAlias).toHaveBeenCalledTimes(1);
           const updated = mockUpdateAlias.mock.calls[0][0];
-          // Heat score should always be >= 1.0 (at minimum the increment)
           expect(updated.heat_score).toBeGreaterThanOrEqual(1.0);
           expect(updated.heat_updated_at).toBeTruthy();
         },
@@ -420,6 +425,7 @@ describe("Property 3: Successful redirect increments analytics", () => {
     await fc.assert(
       fc.asyncProperty(aliasArb, async (alias) => {
         resetMocks("testuser@example.com");
+        const strategy = makeMockStrategy("testuser@example.com");
 
         const record = makeAlias({
           id: alias,
@@ -433,7 +439,8 @@ describe("Property 3: Successful redirect increments analytics", () => {
           return undefined;
         });
 
-        await redirectHandler(makeRequest(alias), makeContext());
+        const handler = createRedirectHandler(strategy);
+        await handler(makeRequest(alias), makeContext());
         expect(mockUpdateAlias).toHaveBeenCalledTimes(1);
         const updated = mockUpdateAlias.mock.calls[0][0];
         expect(updated.heat_score).toBe(1.0);
@@ -447,16 +454,13 @@ describe("Property 3: Successful redirect increments analytics", () => {
 describe("Property 4: Expired aliases block redirection", () => {
   /**
    * Validates: Requirements 1.10, 10.3
-   *
-   * For any alias record with expiry_status set to 'expired', the redirection
-   * engine should never perform a redirect to the destination URL. It should
-   * redirect to the dashboard with an expired indicator instead.
    */
 
   it("expired global alias never redirects to destination", async () => {
     await fc.assert(
       fc.asyncProperty(aliasArb, destinationUrlArb, async (alias, destUrl) => {
         resetMocks("testuser@example.com");
+        const strategy = makeMockStrategy("testuser@example.com");
 
         const expired = makeAlias({
           id: alias,
@@ -471,13 +475,12 @@ describe("Property 4: Expired aliases block redirection", () => {
           return undefined;
         });
 
-        const res = await redirectHandler(makeRequest(alias), makeContext());
-        // Should redirect to dashboard with expired param, not to destination
+        const handler = createRedirectHandler(strategy);
+        const res = await handler(makeRequest(alias), makeContext());
         expect(res.status).toBe(302);
         const loc = (res.headers as Record<string, string>).location;
         expect(loc).toContain("expired=");
         expect(loc).not.toContain(new URL(destUrl).hostname);
-        // Analytics should NOT be updated for expired aliases
         expect(mockUpdateAlias).not.toHaveBeenCalled();
       }),
       { numRuns: 50 },
@@ -492,6 +495,7 @@ describe("Property 4: Expired aliases block redirection", () => {
         destinationUrlArb,
         async (alias, email, destUrl) => {
           resetMocks(email);
+          const strategy = makeMockStrategy(email);
 
           const expired = makeAlias({
             id: `${alias}:${email}`,
@@ -508,7 +512,8 @@ describe("Property 4: Expired aliases block redirection", () => {
             return undefined;
           });
 
-          const res = await redirectHandler(makeRequest(alias), makeContext());
+          const handler = createRedirectHandler(strategy);
+          const res = await handler(makeRequest(alias), makeContext());
           expect(res.status).toBe(302);
           const loc = (res.headers as Record<string, string>).location;
           expect(loc).toContain("expired=");
@@ -529,6 +534,7 @@ describe("Property 4: Expired aliases block redirection", () => {
         destinationUrlArb,
         async (alias, email, privUrl, globalUrl) => {
           resetMocks(email);
+          const strategy = makeMockStrategy(email);
 
           const priv = makeAlias({
             id: `${alias}:${email}`,
@@ -554,7 +560,8 @@ describe("Property 4: Expired aliases block redirection", () => {
             return undefined;
           });
 
-          const res = await redirectHandler(makeRequest(alias), makeContext());
+          const handler = createRedirectHandler(strategy);
+          const res = await handler(makeRequest(alias), makeContext());
           const loc = (res.headers as Record<string, string>).location;
           expect(loc).toContain("expired=");
           expect(mockUpdateAlias).not.toHaveBeenCalled();
@@ -569,10 +576,6 @@ describe("Property 4: Expired aliases block redirection", () => {
 describe("Property 5: Inactivity expiry resets on access", () => {
   /**
    * Validates: Requirements 9.7
-   *
-   * For any alias record with expiry_policy_type set to 'inactivity',
-   * when the alias is accessed via the redirection engine, the expires_at
-   * timestamp should be recalculated to 12 months from the current UTC time.
    */
 
   it("expires_at is reset to ~12 months from now on inactivity alias access", async () => {
@@ -584,6 +587,7 @@ describe("Property 5: Inactivity expiry resets on access", () => {
           .map((days) => new Date(Date.now() + 86400_000 * days).toISOString()),
         async (alias, initialExpiresAt) => {
           resetMocks("testuser@example.com");
+          const strategy = makeMockStrategy("testuser@example.com");
 
           const record = makeAlias({
             id: alias,
@@ -599,13 +603,13 @@ describe("Property 5: Inactivity expiry resets on access", () => {
           });
 
           const beforeCall = Date.now();
-          await redirectHandler(makeRequest(alias), makeContext());
+          const handler = createRedirectHandler(strategy);
+          await handler(makeRequest(alias), makeContext());
 
           expect(mockUpdateAlias).toHaveBeenCalledTimes(1);
           const updated = mockUpdateAlias.mock.calls[0][0];
           const newExpiry = new Date(updated.expires_at!).getTime();
 
-          // 12 months ≈ 365 days. Allow a window for test timing.
           const elevenMonthsMs = 86400_000 * 330;
           const thirteenMonthsMs = 86400_000 * 400;
 
@@ -624,6 +628,7 @@ describe("Property 5: Inactivity expiry resets on access", () => {
         fc.constantFrom("fixed" as const, "never" as const),
         async (alias, policyType) => {
           resetMocks("testuser@example.com");
+          const strategy = makeMockStrategy("testuser@example.com");
 
           const isNever = policyType === "never";
           const originalExpiresAt = isNever
@@ -636,7 +641,6 @@ describe("Property 5: Inactivity expiry resets on access", () => {
             expiry_policy_type: policyType,
             expiry_status: isNever ? "no_expiry" : "active",
           });
-          // Explicitly set expires_at after construction to handle null
           record.expires_at = originalExpiresAt;
 
           mockGetAlias.mockImplementation(async (_a, id) => {
@@ -644,7 +648,8 @@ describe("Property 5: Inactivity expiry resets on access", () => {
             return undefined;
           });
 
-          await redirectHandler(makeRequest(alias), makeContext());
+          const handler = createRedirectHandler(strategy);
+          await handler(makeRequest(alias), makeContext());
 
           if (mockUpdateAlias.mock.calls.length > 0) {
             const updated = mockUpdateAlias.mock.calls[0][0];

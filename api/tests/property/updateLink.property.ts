@@ -17,21 +17,14 @@ import type {
 // Mocks
 // ---------------------------------------------------------------------------
 
-vi.mock("@azure/functions", () => ({
-  app: { http: vi.fn() },
-}));
-
+vi.mock("@azure/functions", () => ({ app: { http: vi.fn() } }));
 vi.mock("../../src/shared/cosmos-client.js", () => ({
   getAliasByPartition: vi.fn(),
   updateAlias: vi.fn(),
 }));
 
-vi.mock("../../src/shared/auth-provider.js", () => ({
-  createAuthProvider: vi.fn(),
-}));
-
-import { updateLinkHandler } from "../../src/functions/updateLink.js";
-import { createAuthProvider } from "../../src/shared/auth-provider.js";
+import { createUpdateLinkHandler } from "../../src/functions/updateLink.js";
+import type { AuthStrategy } from "../../src/shared/auth-strategy.js";
 import {
   getAliasByPartition,
   updateAlias,
@@ -39,7 +32,6 @@ import {
 
 const mockGetAlias = vi.mocked(getAliasByPartition);
 const mockUpdateAlias = vi.mocked(updateAlias);
-const mockCreateAuthProvider = vi.mocked(createAuthProvider);
 
 // ---------------------------------------------------------------------------
 // Generators
@@ -51,7 +43,6 @@ const aliasArb = fc
     maxLength: 20,
   })
   .filter((s) => /^[a-z0-9-]+$/.test(s));
-
 const emailArb = fc
   .tuple(
     fc.stringOf(fc.constantFrom(..."abcdefghijklmnopqrstuvwxyz0123456789"), {
@@ -61,7 +52,6 @@ const emailArb = fc
     fc.constantFrom("example.com", "test.org", "corp.net"),
   )
   .map(([user, domain]) => `${user}@${domain}`);
-
 const destinationUrlArb = fc
   .tuple(
     fc.constantFrom("https://", "http://"),
@@ -70,13 +60,6 @@ const destinationUrlArb = fc
   )
   .map(([proto, host, path]) => `${proto}${host}${path}`);
 
-const titleArb = fc.stringOf(
-  fc.constantFrom(
-    ..."abcdefghijklmnopqrstuvwxyz ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789",
-  ),
-  { minLength: 1, maxLength: 40 },
-);
-
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -84,8 +67,8 @@ const titleArb = fc.stringOf(
 function makeRequest(
   alias: string,
   body: Partial<UpdateAliasRequest>,
-  email: string = "alice@example.com",
-  roles: string = "User",
+  email = "alice@example.com",
+  roles = "User",
 ): HttpRequest {
   const headers = new Headers({
     "x-mock-user-email": email,
@@ -132,8 +115,11 @@ function makeAlias(overrides: Partial<AliasRecord> = {}): AliasRecord {
   };
 }
 
-function makeAuthProvider(email: string, roles: string[]) {
+function makeStrategy(email: string, roles: string[]): AuthStrategy {
   return {
+    mode: "dev",
+    redirectRequiresAuth: false,
+    identityProviders: ["dev"],
     extractIdentity: (headers: Record<string, string>) => ({
       email: headers["x-mock-user-email"] || email,
       roles: (headers["x-mock-user-roles"] || roles.join(","))
@@ -143,30 +129,16 @@ function makeAuthProvider(email: string, roles: string[]) {
   };
 }
 
-// ---------------------------------------------------------------------------
-// Setup
-// ---------------------------------------------------------------------------
-
 beforeEach(() => {
   vi.clearAllMocks();
-  mockCreateAuthProvider.mockReturnValue(
-    makeAuthProvider("alice@example.com", ["User"]),
-  );
   mockUpdateAlias.mockImplementation(async (record) => record);
 });
 
 // ---------------------------------------------------------------------------
 // Property 13: Update recalculates expiry and resets status
 // ---------------------------------------------------------------------------
-
 describe("Property 13: Update recalculates expiry and resets status", () => {
-  /**
-   * Validates: Requirements 2.5, 2.6
-   *
-   * For any alias record owned by the authenticated user, when a PUT request
-   * updates the expiry policy, the expires_at timestamp should be recalculated
-   * based on the new policy and the expiry_status should be reset to active.
-   */
+  /** Validates: Requirements 2.5, 2.6 */
 
   it("updating expiry_policy_type to 'never' sets expires_at to null and expiry_status to 'no_expiry'", async () => {
     await fc.assert(
@@ -180,11 +152,7 @@ describe("Property 13: Update recalculates expiry and resets status", () => {
         ),
         async (alias, creatorEmail, previousStatus) => {
           vi.clearAllMocks();
-          mockCreateAuthProvider.mockReturnValue(
-            makeAuthProvider(creatorEmail, ["User"]),
-          );
           mockUpdateAlias.mockImplementation(async (record) => record);
-
           const existing = makeAlias({
             id: alias,
             alias,
@@ -194,19 +162,17 @@ describe("Property 13: Update recalculates expiry and resets status", () => {
             duration_months: 12,
             expiry_status: previousStatus,
           });
-
           mockGetAlias.mockImplementation(async (_a, id) => {
             if (id === alias) return existing;
             return undefined;
           });
-
-          const req = makeRequest(
-            alias,
-            { expiry_policy_type: "never" },
-            creatorEmail,
+          const handler = createUpdateLinkHandler(
+            makeStrategy(creatorEmail, ["User"]),
           );
-          const res = await updateLinkHandler(req, makeContext());
-
+          const res = await handler(
+            makeRequest(alias, { expiry_policy_type: "never" }, creatorEmail),
+            makeContext(),
+          );
           expect(res.status).toBe(200);
           const body: AliasRecord = JSON.parse(res.body as string);
           expect(body.expiry_policy_type).toBe("never");
@@ -231,11 +197,7 @@ describe("Property 13: Update recalculates expiry and resets status", () => {
         ),
         async (alias, creatorEmail, durationMonths, previousStatus) => {
           vi.clearAllMocks();
-          mockCreateAuthProvider.mockReturnValue(
-            makeAuthProvider(creatorEmail, ["User"]),
-          );
           mockUpdateAlias.mockImplementation(async (record) => record);
-
           const existing = makeAlias({
             id: alias,
             alias,
@@ -246,35 +208,34 @@ describe("Property 13: Update recalculates expiry and resets status", () => {
             expires_at: null,
             expiry_status: previousStatus,
           });
-
           mockGetAlias.mockImplementation(async (_a, id) => {
             if (id === alias) return existing;
             return undefined;
           });
-
           const beforeUpdate = Date.now();
-          const req = makeRequest(
-            alias,
-            { expiry_policy_type: "fixed", duration_months: durationMonths },
-            creatorEmail,
+          const handler = createUpdateLinkHandler(
+            makeStrategy(creatorEmail, ["User"]),
           );
-          const res = await updateLinkHandler(req, makeContext());
+          const res = await handler(
+            makeRequest(
+              alias,
+              { expiry_policy_type: "fixed", duration_months: durationMonths },
+              creatorEmail,
+            ),
+            makeContext(),
+          );
           const afterUpdate = Date.now();
-
           expect(res.status).toBe(200);
           const body: AliasRecord = JSON.parse(res.body as string);
           expect(body.expiry_policy_type).toBe("fixed");
           expect(body.duration_months).toBe(durationMonths);
           expect(body.expiry_status).toBe("active");
           expect(body.expires_at).not.toBeNull();
-
-          // Verify expires_at is approximately now + durationMonths
           const expiresAt = new Date(body.expires_at!).getTime();
           const expectedMin = new Date(beforeUpdate);
           expectedMin.setUTCMonth(expectedMin.getUTCMonth() + durationMonths);
           const expectedMax = new Date(afterUpdate);
           expectedMax.setUTCMonth(expectedMax.getUTCMonth() + durationMonths);
-
           expect(expiresAt).toBeGreaterThanOrEqual(
             expectedMin.getTime() - 1000,
           );
@@ -297,11 +258,7 @@ describe("Property 13: Update recalculates expiry and resets status", () => {
         ),
         async (alias, creatorEmail, previousStatus) => {
           vi.clearAllMocks();
-          mockCreateAuthProvider.mockReturnValue(
-            makeAuthProvider(creatorEmail, ["User"]),
-          );
           mockUpdateAlias.mockImplementation(async (record) => record);
-
           const existing = makeAlias({
             id: alias,
             alias,
@@ -311,34 +268,33 @@ describe("Property 13: Update recalculates expiry and resets status", () => {
             expires_at: null,
             expiry_status: previousStatus,
           });
-
           mockGetAlias.mockImplementation(async (_a, id) => {
             if (id === alias) return existing;
             return undefined;
           });
-
           const beforeUpdate = Date.now();
-          const req = makeRequest(
-            alias,
-            { expiry_policy_type: "inactivity" },
-            creatorEmail,
+          const handler = createUpdateLinkHandler(
+            makeStrategy(creatorEmail, ["User"]),
           );
-          const res = await updateLinkHandler(req, makeContext());
+          const res = await handler(
+            makeRequest(
+              alias,
+              { expiry_policy_type: "inactivity" },
+              creatorEmail,
+            ),
+            makeContext(),
+          );
           const afterUpdate = Date.now();
-
           expect(res.status).toBe(200);
           const body: AliasRecord = JSON.parse(res.body as string);
           expect(body.expiry_policy_type).toBe("inactivity");
           expect(body.expiry_status).toBe("active");
           expect(body.expires_at).not.toBeNull();
-
-          // Verify expires_at is approximately now + 12 months
           const expiresAt = new Date(body.expires_at!).getTime();
           const expectedMin = new Date(beforeUpdate);
           expectedMin.setUTCMonth(expectedMin.getUTCMonth() + 12);
           const expectedMax = new Date(afterUpdate);
           expectedMax.setUTCMonth(expectedMax.getUTCMonth() + 12);
-
           expect(expiresAt).toBeGreaterThanOrEqual(
             expectedMin.getTime() - 1000,
           );
@@ -365,11 +321,7 @@ describe("Property 13: Update recalculates expiry and resets status", () => {
         ),
         async (alias, creatorEmail, previousStatus, newPolicy) => {
           vi.clearAllMocks();
-          mockCreateAuthProvider.mockReturnValue(
-            makeAuthProvider(creatorEmail, ["User"]),
-          );
           mockUpdateAlias.mockImplementation(async (record) => record);
-
           const existing = makeAlias({
             id: alias,
             alias,
@@ -379,25 +331,25 @@ describe("Property 13: Update recalculates expiry and resets status", () => {
             duration_months: 12,
             expiry_status: previousStatus,
           });
-
           mockGetAlias.mockImplementation(async (_a, id) => {
             if (id === alias) return existing;
             return undefined;
           });
-
           const body: Partial<UpdateAliasRequest> = {
             expiry_policy_type: newPolicy,
           };
           if (newPolicy === "fixed") {
             body.duration_months = 3;
           }
-
-          const req = makeRequest(alias, body, creatorEmail);
-          const res = await updateLinkHandler(req, makeContext());
-
+          const handler = createUpdateLinkHandler(
+            makeStrategy(creatorEmail, ["User"]),
+          );
+          const res = await handler(
+            makeRequest(alias, body, creatorEmail),
+            makeContext(),
+          );
           expect(res.status).toBe(200);
           const result: AliasRecord = JSON.parse(res.body as string);
-
           if (newPolicy === "never") {
             expect(result.expiry_status).toBe("no_expiry");
           } else {
@@ -413,17 +365,8 @@ describe("Property 13: Update recalculates expiry and resets status", () => {
 // ---------------------------------------------------------------------------
 // Property 16: Authorization enforces role-based access
 // ---------------------------------------------------------------------------
-
 describe("Property 16: Authorization enforces role-based access", () => {
-  /**
-   * Validates: Requirements 3.3, 3.4, 3.5, 2.10
-   *
-   * For any authenticated user, alias record, and mutation operation (PUT):
-   * - A User who did not create a global alias should receive 403
-   * - An Admin should be allowed to modify any global alias regardless of creator
-   * - An Admin should receive 403 when attempting to modify another user's private alias
-   * - Creator can always update their own alias (global or private)
-   */
+  /** Validates: Requirements 3.3, 3.4, 3.5, 2.10 */
 
   it("a User who did not create a global alias gets 403", async () => {
     await fc.assert(
@@ -433,38 +376,32 @@ describe("Property 16: Authorization enforces role-based access", () => {
         emailArb,
         destinationUrlArb,
         async (alias, creatorEmail, requesterEmail, newUrl) => {
-          // Ensure requester is different from creator
           fc.pre(creatorEmail !== requesterEmail);
-
           vi.clearAllMocks();
-          mockCreateAuthProvider.mockReturnValue(
-            makeAuthProvider(requesterEmail, ["User"]),
-          );
           mockUpdateAlias.mockImplementation(async (record) => record);
-
           const existing = makeAlias({
             id: alias,
             alias,
             created_by: creatorEmail,
             is_private: false,
           });
-
           mockGetAlias.mockImplementation(async (_a, id) => {
-            // Private lookup for requester returns nothing
             if (id === `${alias}:${requesterEmail}`) return undefined;
-            // Global lookup returns the record
             if (id === alias) return existing;
             return undefined;
           });
-
-          const req = makeRequest(
-            alias,
-            { destination_url: newUrl },
-            requesterEmail,
-            "User",
+          const handler = createUpdateLinkHandler(
+            makeStrategy(requesterEmail, ["User"]),
           );
-          const res = await updateLinkHandler(req, makeContext());
-
+          const res = await handler(
+            makeRequest(
+              alias,
+              { destination_url: newUrl },
+              requesterEmail,
+              "User",
+            ),
+            makeContext(),
+          );
           expect(res.status).toBe(403);
         },
       ),
@@ -481,36 +418,31 @@ describe("Property 16: Authorization enforces role-based access", () => {
         destinationUrlArb,
         async (alias, creatorEmail, adminEmail, newUrl) => {
           fc.pre(creatorEmail !== adminEmail);
-
           vi.clearAllMocks();
-          mockCreateAuthProvider.mockReturnValue(
-            makeAuthProvider(adminEmail, ["Admin"]),
-          );
           mockUpdateAlias.mockImplementation(async (record) => record);
-
           const existing = makeAlias({
             id: alias,
             alias,
             created_by: creatorEmail,
             is_private: false,
           });
-
           mockGetAlias.mockImplementation(async (_a, id) => {
-            // Admin's private lookup returns nothing
             if (id === `${alias}:${adminEmail}`) return undefined;
-            // Global lookup returns the record
             if (id === alias) return existing;
             return undefined;
           });
-
-          const req = makeRequest(
-            alias,
-            { destination_url: newUrl },
-            adminEmail,
-            "Admin",
+          const handler = createUpdateLinkHandler(
+            makeStrategy(adminEmail, ["Admin"]),
           );
-          const res = await updateLinkHandler(req, makeContext());
-
+          const res = await handler(
+            makeRequest(
+              alias,
+              { destination_url: newUrl },
+              adminEmail,
+              "Admin",
+            ),
+            makeContext(),
+          );
           expect(res.status).toBe(200);
           const body: AliasRecord = JSON.parse(res.body as string);
           expect(body.destination_url).toBe(newUrl);
@@ -529,36 +461,30 @@ describe("Property 16: Authorization enforces role-based access", () => {
         destinationUrlArb,
         async (alias, creatorEmail, adminEmail, newUrl) => {
           fc.pre(creatorEmail !== adminEmail);
-
           vi.clearAllMocks();
-          mockCreateAuthProvider.mockReturnValue(
-            makeAuthProvider(adminEmail, ["Admin"]),
-          );
           mockUpdateAlias.mockImplementation(async (record) => record);
-
-          // The private alias belongs to creatorEmail
           const existing = makeAlias({
             id: `${alias}:${creatorEmail}`,
             alias,
             created_by: creatorEmail,
             is_private: true,
           });
-
           mockGetAlias.mockImplementation(async (_a, id) => {
-            // Admin's private lookup finds the other user's record
-            // (simulating the scenario where the record is found)
             if (id === `${alias}:${adminEmail}`) return existing;
             return undefined;
           });
-
-          const req = makeRequest(
-            alias,
-            { destination_url: newUrl },
-            adminEmail,
-            "Admin",
+          const handler = createUpdateLinkHandler(
+            makeStrategy(adminEmail, ["Admin"]),
           );
-          const res = await updateLinkHandler(req, makeContext());
-
+          const res = await handler(
+            makeRequest(
+              alias,
+              { destination_url: newUrl },
+              adminEmail,
+              "Admin",
+            ),
+            makeContext(),
+          );
           expect(res.status).toBe(403);
         },
       ),
@@ -575,11 +501,7 @@ describe("Property 16: Authorization enforces role-based access", () => {
         fc.boolean(),
         async (alias, creatorEmail, newUrl, isPrivate) => {
           vi.clearAllMocks();
-          mockCreateAuthProvider.mockReturnValue(
-            makeAuthProvider(creatorEmail, ["User"]),
-          );
           mockUpdateAlias.mockImplementation(async (record) => record);
-
           const id = isPrivate ? `${alias}:${creatorEmail}` : alias;
           const existing = makeAlias({
             id,
@@ -587,28 +509,28 @@ describe("Property 16: Authorization enforces role-based access", () => {
             created_by: creatorEmail,
             is_private: isPrivate,
           });
-
           mockGetAlias.mockImplementation(async (_a, lookupId) => {
             if (isPrivate) {
-              // Private lookup matches
               if (lookupId === `${alias}:${creatorEmail}`) return existing;
               return undefined;
             } else {
-              // Private lookup returns nothing, global lookup matches
               if (lookupId === `${alias}:${creatorEmail}`) return undefined;
               if (lookupId === alias) return existing;
               return undefined;
             }
           });
-
-          const req = makeRequest(
-            alias,
-            { destination_url: newUrl },
-            creatorEmail,
-            "User",
+          const handler = createUpdateLinkHandler(
+            makeStrategy(creatorEmail, ["User"]),
           );
-          const res = await updateLinkHandler(req, makeContext());
-
+          const res = await handler(
+            makeRequest(
+              alias,
+              { destination_url: newUrl },
+              creatorEmail,
+              "User",
+            ),
+            makeContext(),
+          );
           expect(res.status).toBe(200);
           const body: AliasRecord = JSON.parse(res.body as string);
           expect(body.destination_url).toBe(newUrl);

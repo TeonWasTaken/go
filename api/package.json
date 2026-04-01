@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "type": "module",
   "description": "Azure Functions API for Go URL Alias Service",
-  "main": "dist/src/functions/*.js",
+  "main": "dist/src/index.js",
   "scripts": {
     "build": "tsc",
     "watch": "tsc -w",

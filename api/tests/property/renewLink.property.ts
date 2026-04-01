@@ -8,6 +8,7 @@
 import type { HttpRequest, InvocationContext } from "@azure/functions";
 import fc from "fast-check";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { AuthStrategy } from "../../src/shared/auth-strategy.js";
 import type { AliasRecord } from "../../src/shared/models.js";
 
 // ---------------------------------------------------------------------------
@@ -23,12 +24,7 @@ vi.mock("../../src/shared/cosmos-client.js", () => ({
   updateAlias: vi.fn(),
 }));
 
-vi.mock("../../src/shared/auth-provider.js", () => ({
-  createAuthProvider: vi.fn(),
-}));
-
-import { renewLinkHandler } from "../../src/functions/renewLink.js";
-import { createAuthProvider } from "../../src/shared/auth-provider.js";
+import { createRenewLinkHandler } from "../../src/functions/renewLink.js";
 import {
   getAliasByPartition,
   updateAlias,
@@ -36,7 +32,6 @@ import {
 
 const mockGetAlias = vi.mocked(getAliasByPartition);
 const mockUpdateAlias = vi.mocked(updateAlias);
-const mockCreateAuthProvider = vi.mocked(createAuthProvider);
 
 // ---------------------------------------------------------------------------
 // Generators
@@ -62,6 +57,23 @@ const emailArb = fc
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+function makeMockStrategy(
+  email: string = "alice@example.com",
+  roles: string[] = ["User"],
+): AuthStrategy {
+  return {
+    mode: "dev",
+    redirectRequiresAuth: false,
+    identityProviders: ["dev"],
+    extractIdentity: (headers: Record<string, string>) => ({
+      email: headers["x-mock-user-email"] || email,
+      roles: (headers["x-mock-user-roles"] || roles.join(","))
+        .split(",")
+        .map((s: string) => s.trim()),
+    }),
+  };
+}
 
 function makeRequest(
   alias: string,
@@ -111,26 +123,12 @@ function makeAlias(overrides: Partial<AliasRecord> = {}): AliasRecord {
   };
 }
 
-function makeAuthProvider(email: string, roles: string[]) {
-  return {
-    extractIdentity: (headers: Record<string, string>) => ({
-      email: headers["x-mock-user-email"] || email,
-      roles: (headers["x-mock-user-roles"] || roles.join(","))
-        .split(",")
-        .map((s: string) => s.trim()),
-    }),
-  };
-}
-
 // ---------------------------------------------------------------------------
 // Setup
 // ---------------------------------------------------------------------------
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mockCreateAuthProvider.mockReturnValue(
-    makeAuthProvider("alice@example.com", ["User"]),
-  );
   mockUpdateAlias.mockImplementation(async (record) => record);
 });
 
@@ -156,9 +154,7 @@ describe("Property 19: Renewal resets alias to active state", () => {
         fc.constantFrom<1 | 3 | 12>(1, 3, 12),
         async (alias, creatorEmail, durationMonths) => {
           vi.clearAllMocks();
-          mockCreateAuthProvider.mockReturnValue(
-            makeAuthProvider(creatorEmail, ["User"]),
-          );
+          const strategy = makeMockStrategy(creatorEmail, ["User"]);
           mockUpdateAlias.mockImplementation(async (record) => record);
 
           const existing = makeAlias({
@@ -179,8 +175,9 @@ describe("Property 19: Renewal resets alias to active state", () => {
             return undefined;
           });
 
+          const handler = createRenewLinkHandler(strategy);
           const beforeRenew = Date.now();
-          const res = await renewLinkHandler(
+          const res = await handler(
             makeRequest(alias, creatorEmail),
             makeContext(),
           );
@@ -220,9 +217,7 @@ describe("Property 19: Renewal resets alias to active state", () => {
           fc.pre(creatorEmail !== adminEmail);
 
           vi.clearAllMocks();
-          mockCreateAuthProvider.mockReturnValue(
-            makeAuthProvider(adminEmail, ["Admin"]),
-          );
+          const strategy = makeMockStrategy(adminEmail, ["Admin"]);
           mockUpdateAlias.mockImplementation(async (record) => record);
 
           const existing = makeAlias({
@@ -243,8 +238,9 @@ describe("Property 19: Renewal resets alias to active state", () => {
             return undefined;
           });
 
+          const handler = createRenewLinkHandler(strategy);
           const beforeRenew = Date.now();
-          const res = await renewLinkHandler(
+          const res = await handler(
             makeRequest(alias, adminEmail, "Admin"),
             makeContext(),
           );
@@ -277,9 +273,7 @@ describe("Property 19: Renewal resets alias to active state", () => {
     await fc.assert(
       fc.asyncProperty(aliasArb, emailArb, async (alias, creatorEmail) => {
         vi.clearAllMocks();
-        mockCreateAuthProvider.mockReturnValue(
-          makeAuthProvider(creatorEmail, ["User"]),
-        );
+        const strategy = makeMockStrategy(creatorEmail, ["User"]);
         mockUpdateAlias.mockImplementation(async (record) => record);
 
         const existing = makeAlias({
@@ -300,8 +294,9 @@ describe("Property 19: Renewal resets alias to active state", () => {
           return undefined;
         });
 
+        const handler = createRenewLinkHandler(strategy);
         const beforeRenew = Date.now();
-        const res = await renewLinkHandler(
+        const res = await handler(
           makeRequest(alias, creatorEmail),
           makeContext(),
         );
@@ -331,9 +326,7 @@ describe("Property 19: Renewal resets alias to active state", () => {
     await fc.assert(
       fc.asyncProperty(aliasArb, emailArb, async (alias, creatorEmail) => {
         vi.clearAllMocks();
-        mockCreateAuthProvider.mockReturnValue(
-          makeAuthProvider(creatorEmail, ["User"]),
-        );
+        const strategy = makeMockStrategy(creatorEmail, ["User"]);
         mockUpdateAlias.mockImplementation(async (record) => record);
 
         const existing = makeAlias({
@@ -354,7 +347,8 @@ describe("Property 19: Renewal resets alias to active state", () => {
           return undefined;
         });
 
-        const res = await renewLinkHandler(
+        const handler = createRenewLinkHandler(strategy);
+        const res = await handler(
           makeRequest(alias, creatorEmail),
           makeContext(),
         );
@@ -381,9 +375,7 @@ describe("Property 19: Renewal resets alias to active state", () => {
         ),
         async (alias, creatorEmail, policyType) => {
           vi.clearAllMocks();
-          mockCreateAuthProvider.mockReturnValue(
-            makeAuthProvider(creatorEmail, ["User"]),
-          );
+          const strategy = makeMockStrategy(creatorEmail, ["User"]);
           mockUpdateAlias.mockImplementation(async (record) => record);
 
           const existing = makeAlias({
@@ -407,7 +399,8 @@ describe("Property 19: Renewal resets alias to active state", () => {
             return undefined;
           });
 
-          const res = await renewLinkHandler(
+          const handler = createRenewLinkHandler(strategy);
+          const res = await handler(
             makeRequest(alias, creatorEmail),
             makeContext(),
           );

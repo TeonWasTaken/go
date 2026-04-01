@@ -4,6 +4,7 @@
 
 import type { HttpRequest, InvocationContext } from "@azure/functions";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { AuthStrategy } from "../../src/shared/auth-strategy.js";
 import type {
   AliasRecord,
   CreateAliasRequest,
@@ -22,12 +23,7 @@ vi.mock("../../src/shared/cosmos-client.js", () => ({
   getAliasByPartition: vi.fn(),
 }));
 
-vi.mock("../../src/shared/auth-provider.js", () => ({
-  createAuthProvider: vi.fn(),
-}));
-
-import { createLinkHandler } from "../../src/functions/createLink.js";
-import { createAuthProvider } from "../../src/shared/auth-provider.js";
+import { createCreateLinkHandler } from "../../src/functions/createLink.js";
 import {
   createAlias,
   getAliasByPartition,
@@ -35,11 +31,23 @@ import {
 
 const mockCreateAlias = vi.mocked(createAlias);
 const mockGetAlias = vi.mocked(getAliasByPartition);
-const mockCreateAuthProvider = vi.mocked(createAuthProvider);
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+function makeMockStrategy(overrides: Partial<AuthStrategy> = {}): AuthStrategy {
+  return {
+    mode: "dev",
+    redirectRequiresAuth: false,
+    identityProviders: ["dev"],
+    extractIdentity: (headers: Record<string, string>) => ({
+      email: headers["x-mock-user-email"] || "alice@example.com",
+      roles: (headers["x-mock-user-roles"] || "User").split(","),
+    }),
+    ...overrides,
+  };
+}
 
 function makeRequest(body: Partial<CreateAliasRequest> = {}): HttpRequest {
   const defaultBody: CreateAliasRequest = {
@@ -88,6 +96,7 @@ function makeAlias(overrides: Partial<AliasRecord> = {}): AliasRecord {
     expires_at: new Date(Date.now() + 86400_000 * 365).toISOString(),
     expiry_status: "active",
     expired_at: null,
+    icon_url: null,
     ...overrides,
   };
 }
@@ -96,14 +105,11 @@ function makeAlias(overrides: Partial<AliasRecord> = {}): AliasRecord {
 // Setup
 // ---------------------------------------------------------------------------
 
+let strategy: AuthStrategy;
+
 beforeEach(() => {
   vi.clearAllMocks();
-  mockCreateAuthProvider.mockReturnValue({
-    extractIdentity: (headers: Record<string, string>) => ({
-      email: headers["x-mock-user-email"] || "alice@example.com",
-      roles: (headers["x-mock-user-roles"] || "User").split(","),
-    }),
-  });
+  strategy = makeMockStrategy();
   mockGetAlias.mockResolvedValue(undefined);
   mockCreateAlias.mockImplementation(async (record) => record);
 });
@@ -113,16 +119,16 @@ beforeEach(() => {
 // ---------------------------------------------------------------------------
 
 describe("createLink handler", () => {
-  it("returns 401 when auth provider returns null", async () => {
-    mockCreateAuthProvider.mockReturnValue({
-      extractIdentity: () => null,
-    });
-    const res = await createLinkHandler(makeRequest(), makeContext());
+  it("returns 401 when strategy returns null identity", async () => {
+    strategy = makeMockStrategy({ extractIdentity: () => null });
+    const handler = createCreateLinkHandler(strategy);
+    const res = await handler(makeRequest(), makeContext());
     expect(res.status).toBe(401);
   });
 
   it("returns 400 for invalid alias format", async () => {
-    const res = await createLinkHandler(
+    const handler = createCreateLinkHandler(strategy);
+    const res = await handler(
       makeRequest({ alias: "INVALID ALIAS!" }),
       makeContext(),
     );
@@ -131,7 +137,8 @@ describe("createLink handler", () => {
   });
 
   it("returns 400 for invalid destination URL", async () => {
-    const res = await createLinkHandler(
+    const handler = createCreateLinkHandler(strategy);
+    const res = await handler(
       makeRequest({ destination_url: "not-a-url" }),
       makeContext(),
     );
@@ -140,7 +147,8 @@ describe("createLink handler", () => {
   });
 
   it("returns 400 for invalid expiry policy", async () => {
-    const res = await createLinkHandler(
+    const handler = createCreateLinkHandler(strategy);
+    const res = await handler(
       makeRequest({ expiry_policy_type: "bogus" as any }),
       makeContext(),
     );
@@ -150,13 +158,15 @@ describe("createLink handler", () => {
 
   it("returns 409 for global alias conflict", async () => {
     mockGetAlias.mockResolvedValue(makeAlias());
-    const res = await createLinkHandler(makeRequest(), makeContext());
+    const handler = createCreateLinkHandler(strategy);
+    const res = await handler(makeRequest(), makeContext());
     expect(res.status).toBe(409);
     expect(res.body).toContain("already exists");
   });
 
   it("returns 201 for successful creation with defaults", async () => {
-    const res = await createLinkHandler(makeRequest(), makeContext());
+    const handler = createCreateLinkHandler(strategy);
+    const res = await handler(makeRequest(), makeContext());
     expect(res.status).toBe(201);
     expect(res.headers).toHaveProperty("content-type", "application/json");
 
@@ -179,17 +189,13 @@ describe("createLink handler", () => {
   });
 
   it("returns 201 for private alias creation (checks private conflict)", async () => {
-    // No existing private alias — creation should succeed
     mockGetAlias.mockResolvedValue(undefined);
-    const res = await createLinkHandler(
-      makeRequest({ is_private: true }),
-      makeContext(),
-    );
+    const handler = createCreateLinkHandler(strategy);
+    const res = await handler(makeRequest({ is_private: true }), makeContext());
     expect(res.status).toBe(201);
     const body = JSON.parse(res.body as string);
     expect(body.is_private).toBe(true);
     expect(body.id).toBe("my-link:alice@example.com");
-    // getAliasByPartition should have been called to check for private conflict
     expect(mockGetAlias).toHaveBeenCalledWith(
       "my-link",
       "my-link:alice@example.com",
@@ -197,7 +203,8 @@ describe("createLink handler", () => {
   });
 
   it("computes expiry correctly for never policy", async () => {
-    const res = await createLinkHandler(
+    const handler = createCreateLinkHandler(strategy);
+    const res = await handler(
       makeRequest({ expiry_policy_type: "never" }),
       makeContext(),
     );
@@ -210,7 +217,8 @@ describe("createLink handler", () => {
   });
 
   it("computes expiry correctly for inactivity policy", async () => {
-    const res = await createLinkHandler(
+    const handler = createCreateLinkHandler(strategy);
+    const res = await handler(
       makeRequest({ expiry_policy_type: "inactivity" }),
       makeContext(),
     );
@@ -219,14 +227,14 @@ describe("createLink handler", () => {
     expect(body.expiry_policy_type).toBe("inactivity");
     expect(body.expires_at).toBeTruthy();
     expect(body.expiry_status).toBe("active");
-    // expires_at should be ~12 months from now
     const expiresAt = new Date(body.expires_at).getTime();
     const elevenMonths = Date.now() + 86400_000 * 330;
     expect(expiresAt).toBeGreaterThan(elevenMonths);
   });
 
   it("computes expiry correctly for fixed policy with duration_months", async () => {
-    const res = await createLinkHandler(
+    const handler = createCreateLinkHandler(strategy);
+    const res = await handler(
       makeRequest({ expiry_policy_type: "fixed", duration_months: 3 }),
       makeContext(),
     );
@@ -235,7 +243,6 @@ describe("createLink handler", () => {
     expect(body.expiry_policy_type).toBe("fixed");
     expect(body.duration_months).toBe(3);
     expect(body.expires_at).toBeTruthy();
-    // expires_at should be ~3 months from now
     const expiresAt = new Date(body.expires_at).getTime();
     const twoMonths = Date.now() + 86400_000 * 60;
     const fourMonths = Date.now() + 86400_000 * 125;
@@ -245,7 +252,8 @@ describe("createLink handler", () => {
 
   it("computes expiry correctly for fixed policy with custom_expires_at", async () => {
     const futureDate = new Date(Date.now() + 86400_000 * 180).toISOString();
-    const res = await createLinkHandler(
+    const handler = createCreateLinkHandler(strategy);
+    const res = await handler(
       makeRequest({
         expiry_policy_type: "fixed",
         custom_expires_at: futureDate,
@@ -260,10 +268,8 @@ describe("createLink handler", () => {
   });
 
   it("normalizes alias to lowercase", async () => {
-    const res = await createLinkHandler(
-      makeRequest({ alias: "My-Link" }),
-      makeContext(),
-    );
+    const handler = createCreateLinkHandler(strategy);
+    const res = await handler(makeRequest({ alias: "My-Link" }), makeContext());
     expect(res.status).toBe(201);
     const body = JSON.parse(res.body as string);
     expect(body.alias).toBe("my-link");
@@ -271,8 +277,9 @@ describe("createLink handler", () => {
 
   it("returns 500 on unexpected error", async () => {
     mockCreateAlias.mockRejectedValue(new Error("DB failure"));
+    const handler = createCreateLinkHandler(strategy);
     const ctx = makeContext();
-    const res = await createLinkHandler(makeRequest(), ctx);
+    const res = await handler(makeRequest(), ctx);
     expect(res.status).toBe(500);
     expect(ctx.error).toHaveBeenCalled();
   });

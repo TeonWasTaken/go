@@ -10,6 +10,7 @@
 import type { HttpRequest, InvocationContext } from "@azure/functions";
 import fc from "fast-check";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { AuthStrategy } from "../../src/shared/auth-strategy.js";
 import type { AliasRecord } from "../../src/shared/models.js";
 
 // ---------------------------------------------------------------------------
@@ -26,12 +27,7 @@ vi.mock("../../src/shared/cosmos-client.js", () => ({
   getPopularGlobalAliases: vi.fn(),
 }));
 
-vi.mock("../../src/shared/auth-provider.js", () => ({
-  createAuthProvider: vi.fn(),
-}));
-
-import { getLinksHandler } from "../../src/functions/getLinks.js";
-import { createAuthProvider } from "../../src/shared/auth-provider.js";
+import { createGetLinksHandler } from "../../src/functions/getLinks.js";
 import {
   getPopularGlobalAliases,
   listAliasesForUser,
@@ -41,7 +37,6 @@ import {
 const mockListAliases = vi.mocked(listAliasesForUser);
 const mockSearchAliases = vi.mocked(searchAliases);
 const mockGetPopular = vi.mocked(getPopularGlobalAliases);
-const mockCreateAuthProvider = vi.mocked(createAuthProvider);
 
 // ---------------------------------------------------------------------------
 // Generators
@@ -92,6 +87,18 @@ const titleArb = fc.stringOf(
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+function makeMockStrategy(email: string): AuthStrategy {
+  return {
+    mode: "dev",
+    redirectRequiresAuth: false,
+    identityProviders: ["dev"],
+    extractIdentity: (headers: Record<string, string>) => ({
+      email: headers["x-mock-user-email"] || email,
+      roles: (headers["x-mock-user-roles"] || "User").split(","),
+    }),
+  };
+}
 
 function makeRequest(query?: Record<string, string>): HttpRequest {
   const params = new URLSearchParams(query);
@@ -160,12 +167,6 @@ function makeAlias(overrides: Partial<AliasRecord> = {}): AliasRecord {
 
 function resetMocks(email: string): void {
   vi.clearAllMocks();
-  mockCreateAuthProvider.mockReturnValue({
-    extractIdentity: (headers: Record<string, string>) => ({
-      email: headers["x-mock-user-email"] || email,
-      roles: (headers["x-mock-user-roles"] || "User").split(","),
-    }),
-  });
   mockListAliases.mockResolvedValue([]);
   mockSearchAliases.mockResolvedValue([]);
   mockGetPopular.mockResolvedValue([]);
@@ -226,7 +227,9 @@ describe("Property 6: API returns globals plus only the requesting user's privat
 
           mockListAliases.mockResolvedValue(expectedRecords);
 
-          const res = await getLinksHandler(
+          const strategy = makeMockStrategy(requestingUser);
+          const handler = createGetLinksHandler(strategy);
+          const res = await handler(
             makeRequestForUser(requestingUser),
             makeContext(),
           );
@@ -291,7 +294,9 @@ describe("Property 7: Search filters by alias or title", () => {
 
           mockSearchAliases.mockResolvedValue(matchingRecords);
 
-          const res = await getLinksHandler(
+          const strategy = makeMockStrategy(requestingUser);
+          const handler = createGetLinksHandler(strategy);
+          const res = await handler(
             makeRequestForUser(requestingUser, { search: searchTerm }),
             makeContext(),
           );
@@ -336,7 +341,9 @@ describe("Property 15: Sort by clicks produces descending order", () => {
           );
           mockListAliases.mockResolvedValue(sorted);
 
-          const res = await getLinksHandler(
+          const strategy = makeMockStrategy("alice@example.com");
+          const handler = createGetLinksHandler(strategy);
+          const res = await handler(
             makeRequest({ sort: "clicks" }),
             makeContext(),
           );
@@ -369,7 +376,9 @@ describe("Property 15: Sort by clicks produces descending order", () => {
           );
           mockListAliases.mockResolvedValue(sorted);
 
-          const res = await getLinksHandler(
+          const strategy = makeMockStrategy("alice@example.com");
+          const handler = createGetLinksHandler(strategy);
+          const res = await handler(
             makeRequest({ sort: "heat" }),
             makeContext(),
           );
@@ -414,7 +423,9 @@ describe("Property 23: Popular links returns only top global aliases by heat", (
 
           mockGetPopular.mockResolvedValue(globalRecords);
 
-          const res = await getLinksHandler(
+          const strategy = makeMockStrategy("alice@example.com");
+          const handler = createGetLinksHandler(strategy);
+          const res = await handler(
             makeRequest({ scope: "popular" }),
             makeContext(),
           );

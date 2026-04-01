@@ -4,6 +4,7 @@
 
 import type { HttpRequest, InvocationContext } from "@azure/functions";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { AuthStrategy } from "../../src/shared/auth-strategy.js";
 import type {
   AliasRecord,
   UpdateAliasRequest,
@@ -22,12 +23,7 @@ vi.mock("../../src/shared/cosmos-client.js", () => ({
   updateAlias: vi.fn(),
 }));
 
-vi.mock("../../src/shared/auth-provider.js", () => ({
-  createAuthProvider: vi.fn(),
-}));
-
-import { updateLinkHandler } from "../../src/functions/updateLink.js";
-import { createAuthProvider } from "../../src/shared/auth-provider.js";
+import { createUpdateLinkHandler } from "../../src/functions/updateLink.js";
 import {
   getAliasByPartition,
   updateAlias,
@@ -35,11 +31,26 @@ import {
 
 const mockGetAlias = vi.mocked(getAliasByPartition);
 const mockUpdateAlias = vi.mocked(updateAlias);
-const mockCreateAuthProvider = vi.mocked(createAuthProvider);
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+function makeMockStrategy(overrides: Partial<AuthStrategy> = {}): AuthStrategy {
+  return {
+    mode: "dev",
+    redirectRequiresAuth: false,
+    identityProviders: ["dev"],
+    extractIdentity: (headers: Record<string, string>) => {
+      const e = headers["x-mock-user-email"] || "alice@example.com";
+      const r = (headers["x-mock-user-roles"] || "User")
+        .split(",")
+        .map((s: string) => s.trim());
+      return { email: e, roles: r };
+    },
+    ...overrides,
+  };
+}
 
 function makeRequest(
   alias: string,
@@ -97,31 +108,14 @@ function makeAlias(overrides: Partial<AliasRecord> = {}): AliasRecord {
 }
 
 // ---------------------------------------------------------------------------
-// Auth helper factory
-// ---------------------------------------------------------------------------
-
-function makeAuthProvider(
-  email: string = "alice@example.com",
-  roles: string[] = ["User"],
-) {
-  return {
-    extractIdentity: (headers: Record<string, string>) => {
-      const e = headers["x-mock-user-email"] || email;
-      const r = (headers["x-mock-user-roles"] || roles.join(","))
-        .split(",")
-        .map((s: string) => s.trim());
-      return { email: e, roles: r };
-    },
-  };
-}
-
-// ---------------------------------------------------------------------------
 // Setup
 // ---------------------------------------------------------------------------
 
+let strategy: AuthStrategy;
+
 beforeEach(() => {
   vi.clearAllMocks();
-  mockCreateAuthProvider.mockReturnValue(makeAuthProvider());
+  strategy = makeMockStrategy();
   mockUpdateAlias.mockImplementation(async (record) => record);
 });
 
@@ -131,53 +125,51 @@ beforeEach(() => {
 
 describe("updateLink handler", () => {
   it("returns 401 for unauthenticated request", async () => {
-    mockCreateAuthProvider.mockReturnValue({
-      extractIdentity: () => null,
-    });
-    const res = await updateLinkHandler(makeRequest("my-link"), makeContext());
+    strategy = makeMockStrategy({ extractIdentity: () => null });
+    const handler = createUpdateLinkHandler(strategy);
+    const res = await handler(makeRequest("my-link"), makeContext());
     expect(res.status).toBe(401);
   });
 
   it("returns 404 when alias not found", async () => {
     mockGetAlias.mockResolvedValue(undefined);
-    const res = await updateLinkHandler(makeRequest("no-exist"), makeContext());
+    const handler = createUpdateLinkHandler(strategy);
+    const res = await handler(makeRequest("no-exist"), makeContext());
     expect(res.status).toBe(404);
     expect(res.body).toContain("not found");
   });
 
   it("returns 403 when non-creator non-admin tries to update global alias", async () => {
-    // bob created the alias, alice (User) tries to update
     const record = makeAlias({ created_by: "bob@example.com" });
     mockGetAlias.mockImplementation(async (_alias, id) => {
-      // private lookup returns undefined, global lookup returns the record
       if (id === "my-link") return record;
       return undefined;
     });
 
-    const res = await updateLinkHandler(makeRequest("my-link"), makeContext());
+    const handler = createUpdateLinkHandler(strategy);
+    const res = await handler(makeRequest("my-link"), makeContext());
     expect(res.status).toBe(403);
   });
 
   it("returns 403 when admin tries to update another user's private alias", async () => {
-    // bob's private alias
     const record = makeAlias({
       id: "my-link:bob@example.com",
       created_by: "bob@example.com",
       is_private: true,
     });
-    // Admin alice tries to update — but the private lookup is scoped to alice,
-    // so she wouldn't find bob's private alias via the normal lookup.
-    // However, as a safety check, if somehow the record is found:
-    mockCreateAuthProvider.mockReturnValue(
-      makeAuthProvider("alice@example.com", ["Admin"]),
-    );
+    strategy = makeMockStrategy({
+      extractIdentity: (headers: Record<string, string>) => ({
+        email: headers["x-mock-user-email"] || "alice@example.com",
+        roles: ["Admin"],
+      }),
+    });
     mockGetAlias.mockImplementation(async (_alias, id) => {
-      // Simulate: alice's private lookup returns bob's record (safety check scenario)
       if (id === "my-link:alice@example.com") return record;
       return undefined;
     });
 
-    const res = await updateLinkHandler(makeRequest("my-link"), makeContext());
+    const handler = createUpdateLinkHandler(strategy);
+    const res = await handler(makeRequest("my-link"), makeContext());
     expect(res.status).toBe(403);
   });
 
@@ -188,7 +180,8 @@ describe("updateLink handler", () => {
       return undefined;
     });
 
-    const res = await updateLinkHandler(
+    const handler = createUpdateLinkHandler(strategy);
+    const res = await handler(
       makeRequest("my-link", { destination_url: "https://example.com/new" }),
       makeContext(),
     );
@@ -199,15 +192,19 @@ describe("updateLink handler", () => {
 
   it("returns 200 for admin updating any global alias", async () => {
     const record = makeAlias({ created_by: "bob@example.com" });
-    mockCreateAuthProvider.mockReturnValue(
-      makeAuthProvider("alice@example.com", ["Admin"]),
-    );
+    strategy = makeMockStrategy({
+      extractIdentity: (headers: Record<string, string>) => ({
+        email: headers["x-mock-user-email"] || "alice@example.com",
+        roles: ["Admin"],
+      }),
+    });
     mockGetAlias.mockImplementation(async (_alias, id) => {
       if (id === "my-link") return record;
       return undefined;
     });
 
-    const res = await updateLinkHandler(
+    const handler = createUpdateLinkHandler(strategy);
+    const res = await handler(
       makeRequest(
         "my-link",
         { title: "Updated Title" },
@@ -234,7 +231,8 @@ describe("updateLink handler", () => {
       return undefined;
     });
 
-    const res = await updateLinkHandler(
+    const handler = createUpdateLinkHandler(strategy);
+    const res = await handler(
       makeRequest("my-link", {
         destination_url: "https://example.com/private-new",
       }),
@@ -258,7 +256,8 @@ describe("updateLink handler", () => {
       return undefined;
     });
 
-    const res = await updateLinkHandler(
+    const handler = createUpdateLinkHandler(strategy);
+    const res = await handler(
       makeRequest("my-link", { expiry_policy_type: "never" }),
       makeContext(),
     );
@@ -281,7 +280,8 @@ describe("updateLink handler", () => {
       return undefined;
     });
 
-    const res = await updateLinkHandler(
+    const handler = createUpdateLinkHandler(strategy);
+    const res = await handler(
       makeRequest("my-link", {
         expiry_policy_type: "fixed",
         duration_months: 3,
@@ -303,7 +303,8 @@ describe("updateLink handler", () => {
       return undefined;
     });
 
-    const res = await updateLinkHandler(
+    const handler = createUpdateLinkHandler(strategy);
+    const res = await handler(
       makeRequest("my-link", { destination_url: "not-a-url" }),
       makeContext(),
     );
@@ -314,7 +315,8 @@ describe("updateLink handler", () => {
   it("returns 500 on unexpected error", async () => {
     mockGetAlias.mockRejectedValue(new Error("DB failure"));
     const ctx = makeContext();
-    const res = await updateLinkHandler(makeRequest("my-link"), ctx);
+    const handler = createUpdateLinkHandler(strategy);
+    const res = await handler(makeRequest("my-link"), ctx);
     expect(res.status).toBe(500);
     expect(ctx.error).toHaveBeenCalled();
   });

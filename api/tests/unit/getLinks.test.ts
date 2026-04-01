@@ -4,6 +4,7 @@
 
 import type { HttpRequest, InvocationContext } from "@azure/functions";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { AuthStrategy } from "../../src/shared/auth-strategy.js";
 import type { AliasRecord } from "../../src/shared/models.js";
 
 // ---------------------------------------------------------------------------
@@ -20,12 +21,7 @@ vi.mock("../../src/shared/cosmos-client.js", () => ({
   getPopularGlobalAliases: vi.fn(),
 }));
 
-vi.mock("../../src/shared/auth-provider.js", () => ({
-  createAuthProvider: vi.fn(),
-}));
-
-import { getLinksHandler } from "../../src/functions/getLinks.js";
-import { createAuthProvider } from "../../src/shared/auth-provider.js";
+import { createGetLinksHandler } from "../../src/functions/getLinks.js";
 import {
   getPopularGlobalAliases,
   listAliasesForUser,
@@ -35,11 +31,23 @@ import {
 const mockListAliases = vi.mocked(listAliasesForUser);
 const mockSearchAliases = vi.mocked(searchAliases);
 const mockGetPopular = vi.mocked(getPopularGlobalAliases);
-const mockCreateAuthProvider = vi.mocked(createAuthProvider);
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+function makeMockStrategy(overrides: Partial<AuthStrategy> = {}): AuthStrategy {
+  return {
+    mode: "dev",
+    redirectRequiresAuth: false,
+    identityProviders: ["dev"],
+    extractIdentity: (headers: Record<string, string>) => ({
+      email: headers["x-mock-user-email"] || "alice@example.com",
+      roles: (headers["x-mock-user-roles"] || "User").split(","),
+    }),
+    ...overrides,
+  };
+}
 
 function makeRequest(query?: Record<string, string>): HttpRequest {
   const params = new URLSearchParams(query);
@@ -83,6 +91,7 @@ function makeAlias(overrides: Partial<AliasRecord> = {}): AliasRecord {
     expires_at: new Date(Date.now() + 86400_000 * 300).toISOString(),
     expiry_status: "active",
     expired_at: null,
+    icon_url: null,
     ...overrides,
   };
 }
@@ -91,14 +100,11 @@ function makeAlias(overrides: Partial<AliasRecord> = {}): AliasRecord {
 // Setup
 // ---------------------------------------------------------------------------
 
+let strategy: AuthStrategy;
+
 beforeEach(() => {
   vi.clearAllMocks();
-  mockCreateAuthProvider.mockReturnValue({
-    extractIdentity: (headers: Record<string, string>) => ({
-      email: headers["x-mock-user-email"] || "alice@example.com",
-      roles: (headers["x-mock-user-roles"] || "User").split(","),
-    }),
-  });
+  strategy = makeMockStrategy();
 });
 
 // ---------------------------------------------------------------------------
@@ -106,11 +112,10 @@ beforeEach(() => {
 // ---------------------------------------------------------------------------
 
 describe("getLinks handler", () => {
-  it("returns 401 when auth provider returns null", async () => {
-    mockCreateAuthProvider.mockReturnValue({
-      extractIdentity: () => null,
-    });
-    const res = await getLinksHandler(makeRequest(), makeContext());
+  it("returns 401 when strategy returns null identity", async () => {
+    strategy = makeMockStrategy({ extractIdentity: () => null });
+    const handler = createGetLinksHandler(strategy);
+    const res = await handler(makeRequest(), makeContext());
     expect(res.status).toBe(401);
   });
 
@@ -118,7 +123,8 @@ describe("getLinks handler", () => {
     const aliases = [makeAlias({ alias: "a" }), makeAlias({ alias: "b" })];
     mockListAliases.mockResolvedValue(aliases);
 
-    const res = await getLinksHandler(makeRequest(), makeContext());
+    const handler = createGetLinksHandler(strategy);
+    const res = await handler(makeRequest(), makeContext());
     expect(res.status).toBe(200);
     expect(res.headers).toHaveProperty("content-type", "application/json");
     expect(JSON.parse(res.body as string)).toEqual(aliases);
@@ -130,13 +136,15 @@ describe("getLinks handler", () => {
 
   it("passes sort=clicks to listAliasesForUser", async () => {
     mockListAliases.mockResolvedValue([]);
-    await getLinksHandler(makeRequest({ sort: "clicks" }), makeContext());
+    const handler = createGetLinksHandler(strategy);
+    await handler(makeRequest({ sort: "clicks" }), makeContext());
     expect(mockListAliases).toHaveBeenCalledWith("alice@example.com", "clicks");
   });
 
   it("passes sort=heat to listAliasesForUser", async () => {
     mockListAliases.mockResolvedValue([]);
-    await getLinksHandler(makeRequest({ sort: "heat" }), makeContext());
+    const handler = createGetLinksHandler(strategy);
+    await handler(makeRequest({ sort: "heat" }), makeContext());
     expect(mockListAliases).toHaveBeenCalledWith("alice@example.com", "heat");
   });
 
@@ -144,10 +152,8 @@ describe("getLinks handler", () => {
     const aliases = [makeAlias({ alias: "docs", title: "Documentation" })];
     mockSearchAliases.mockResolvedValue(aliases);
 
-    const res = await getLinksHandler(
-      makeRequest({ search: "doc" }),
-      makeContext(),
-    );
+    const handler = createGetLinksHandler(strategy);
+    const res = await handler(makeRequest({ search: "doc" }), makeContext());
     expect(res.status).toBe(200);
     expect(JSON.parse(res.body as string)).toEqual(aliases);
     expect(mockSearchAliases).toHaveBeenCalledWith("alice@example.com", "doc");
@@ -158,10 +164,8 @@ describe("getLinks handler", () => {
     const popular = [makeAlias({ alias: "hot", heat_score: 50 })];
     mockGetPopular.mockResolvedValue(popular);
 
-    const res = await getLinksHandler(
-      makeRequest({ scope: "popular" }),
-      makeContext(),
-    );
+    const handler = createGetLinksHandler(strategy);
+    const res = await handler(makeRequest({ scope: "popular" }), makeContext());
     expect(res.status).toBe(200);
     expect(JSON.parse(res.body as string)).toEqual(popular);
     expect(mockGetPopular).toHaveBeenCalledWith(10);
@@ -171,7 +175,8 @@ describe("getLinks handler", () => {
 
   it("scope=popular takes precedence over search", async () => {
     mockGetPopular.mockResolvedValue([]);
-    await getLinksHandler(
+    const handler = createGetLinksHandler(strategy);
+    await handler(
       makeRequest({ scope: "popular", search: "test" }),
       makeContext(),
     );
@@ -187,7 +192,8 @@ describe("getLinks handler", () => {
     });
     mockListAliases.mockResolvedValue([alias]);
 
-    const res = await getLinksHandler(makeRequest(), makeContext());
+    const handler = createGetLinksHandler(strategy);
+    const res = await handler(makeRequest(), makeContext());
     const body = JSON.parse(res.body as string);
     expect(body[0].click_count).toBe(42);
     expect(body[0].last_accessed_at).toBe("2024-01-15T10:00:00.000Z");
@@ -196,8 +202,9 @@ describe("getLinks handler", () => {
 
   it("returns 500 on unexpected error", async () => {
     mockListAliases.mockRejectedValue(new Error("DB failure"));
+    const handler = createGetLinksHandler(strategy);
     const ctx = makeContext();
-    const res = await getLinksHandler(makeRequest(), ctx);
+    const res = await handler(makeRequest(), ctx);
     expect(res.status).toBe(500);
     expect(ctx.error).toHaveBeenCalled();
   });

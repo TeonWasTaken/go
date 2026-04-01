@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { useAuthConfig } from "../App";
 import type { AliasRecord } from "../services/api";
 import {
   ApiError,
@@ -31,21 +32,30 @@ export function ManagePage() {
   const [editTarget, setEditTarget] = useState<AliasRecord | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<AliasRecord | null>(null);
+  const [needsSignIn, setNeedsSignIn] = useState(false);
   const { showToast } = useToast();
+  const authConfig = useAuthConfig();
+
+  const isPublicMode = authConfig?.mode === "public";
 
   const fetchLinks = useCallback(async () => {
     setLoading(true);
     try {
       const data = await getLinks(search ? { search } : undefined);
       setRecords(data);
+      setNeedsSignIn(false);
     } catch (err) {
-      const msg =
-        err instanceof ApiError ? err.message : "Failed to load aliases";
-      showToast(msg, "error");
+      if (isPublicMode && err instanceof ApiError && err.status === 401) {
+        setNeedsSignIn(true);
+      } else {
+        const msg =
+          err instanceof ApiError ? err.message : "Failed to load aliases";
+        showToast(msg, "error");
+      }
     } finally {
       setLoading(false);
     }
-  }, [search, showToast]);
+  }, [search, showToast, isPublicMode]);
 
   useEffect(() => {
     fetchLinks();
@@ -97,6 +107,19 @@ export function ManagePage() {
   };
 
   const filtered = filterRecords(records, filter);
+
+  if (needsSignIn && isPublicMode && authConfig?.loginUrl) {
+    return (
+      <section className="alias-list-page">
+        <div className="alias-list-page__sign-in-prompt">
+          <p>Sign in to manage your short links.</p>
+          <a className="btn btn--primary" href={authConfig.loginUrl}>
+            Sign In
+          </a>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="alias-list-page">

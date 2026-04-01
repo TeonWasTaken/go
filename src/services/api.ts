@@ -120,6 +120,16 @@ export async function renewLink(alias: string): Promise<AliasRecord> {
   });
 }
 
+export interface AuthConfigResponse {
+  mode: "corporate" | "public" | "dev";
+  identityProviders: string[];
+  loginUrl: string;
+}
+
+export async function getAuthConfig(): Promise<AuthConfigResponse> {
+  return request<AuthConfigResponse>("/api/auth-config");
+}
+
 export async function scrapeMetadata(
   url: string,
 ): Promise<{ title: string; iconUrl: string }> {

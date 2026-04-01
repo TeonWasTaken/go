@@ -26,12 +26,8 @@ vi.mock("../../src/shared/cosmos-client.js", () => ({
   getAliasByPartition: vi.fn(),
 }));
 
-vi.mock("../../src/shared/auth-provider.js", () => ({
-  createAuthProvider: vi.fn(),
-}));
-
-import { createLinkHandler } from "../../src/functions/createLink.js";
-import { createAuthProvider } from "../../src/shared/auth-provider.js";
+import { createCreateLinkHandler } from "../../src/functions/createLink.js";
+import type { AuthStrategy } from "../../src/shared/auth-strategy.js";
 import {
   createAlias,
   getAliasByPartition,
@@ -39,7 +35,6 @@ import {
 
 const mockCreateAlias = vi.mocked(createAlias);
 const mockGetAlias = vi.mocked(getAliasByPartition);
-const mockCreateAuthProvider = vi.mocked(createAuthProvider);
 
 // ---------------------------------------------------------------------------
 // Generators
@@ -118,14 +113,20 @@ function makeContext(): InvocationContext {
 
 function resetMocks(email: string): void {
   vi.clearAllMocks();
-  mockCreateAuthProvider.mockReturnValue({
+  mockGetAlias.mockResolvedValue(undefined);
+  mockCreateAlias.mockImplementation(async (record) => record);
+}
+
+function makeStrategy(email: string): AuthStrategy {
+  return {
+    mode: "dev",
+    redirectRequiresAuth: false,
+    identityProviders: ["dev"],
     extractIdentity: (headers: Record<string, string>) => ({
       email: headers["x-mock-user-email"] || email,
       roles: (headers["x-mock-user-roles"] || "User").split(","),
     }),
-  });
-  mockGetAlias.mockResolvedValue(undefined);
-  mockCreateAlias.mockImplementation(async (record) => record);
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -165,7 +166,8 @@ describe("Property 8: Alias creation applies correct defaults", () => {
           };
 
           const req = makeRequest(body, userEmail);
-          const res = await createLinkHandler(req, makeContext());
+          const handler = createCreateLinkHandler(makeStrategy(userEmail));
+          const res = await handler(req, makeContext());
 
           expect(res.status).toBe(201);
           const record: AliasRecord = JSON.parse(res.body as string);
@@ -200,7 +202,8 @@ describe("Property 8: Alias creation applies correct defaults", () => {
           };
 
           const req = makeRequest(body, userEmail);
-          const res = await createLinkHandler(req, makeContext());
+          const handler = createCreateLinkHandler(makeStrategy(userEmail));
+          const res = await handler(req, makeContext());
 
           expect(res.status).toBe(201);
           const record: AliasRecord = JSON.parse(res.body as string);
@@ -248,7 +251,8 @@ describe("Property 8: Alias creation applies correct defaults", () => {
           };
 
           const req = makeRequest(body, userEmail);
-          const res = await createLinkHandler(req, makeContext());
+          const handler = createCreateLinkHandler(makeStrategy(userEmail));
+          const res = await handler(req, makeContext());
 
           expect(res.status).toBe(201);
           const record: AliasRecord = JSON.parse(res.body as string);
@@ -320,7 +324,8 @@ describe("Property 9: Global alias names are unique (case-insensitive)", () => {
           };
 
           const req = makeRequest(body, userEmail);
-          const res = await createLinkHandler(req, makeContext());
+          const handler = createCreateLinkHandler(makeStrategy(userEmail));
+          const res = await handler(req, makeContext());
 
           expect(res.status).toBe(409);
           expect(typeof res.body).toBe("string");
@@ -354,7 +359,8 @@ describe("Property 9: Global alias names are unique (case-insensitive)", () => {
           };
 
           const req = makeRequest(body, userEmail);
-          const res = await createLinkHandler(req, makeContext());
+          const handler = createCreateLinkHandler(makeStrategy(userEmail));
+          const res = await handler(req, makeContext());
 
           expect(res.status).toBe(201);
           const record: AliasRecord = JSON.parse(res.body as string);
@@ -394,7 +400,8 @@ describe("Property 9: Global alias names are unique (case-insensitive)", () => {
           };
 
           const req = makeRequest(body, userEmail);
-          await createLinkHandler(req, makeContext());
+          const handler = createCreateLinkHandler(makeStrategy(userEmail));
+          await handler(req, makeContext());
 
           // Verify the conflict check used the lowercased alias
           const lowered = alias.toLowerCase();

@@ -5,6 +5,11 @@
  * Handles private-first resolution, interstitial conflict pages, expiry checks,
  * analytics updates (click_count, last_accessed_at, heat_score), inactivity
  * expiry resets, and query string / fragment passthrough.
+ *
+ * Auth branching via `strategy.redirectRequiresAuth`:
+ *   - true  + null identity → 401
+ *   - false + null identity → resolve only global non-private aliases
+ *   - false + identity      → resolve both private and global (existing behavior)
  */
 
 import {
@@ -13,7 +18,7 @@ import {
   HttpResponseInit,
   InvocationContext,
 } from "@azure/functions";
-import { createAuthProvider } from "../shared/auth-provider.js";
+import type { AuthStrategy } from "../shared/auth-strategy.js";
 import { getAliasByPartition, updateAlias } from "../shared/cosmos-client.js";
 import { computeHeatScore } from "../shared/heat-utils.js";
 import { AliasRecord } from "../shared/models.js";
@@ -51,168 +56,179 @@ async function applyRedirectSideEffects(
 }
 
 // ---------------------------------------------------------------------------
-// Main handler
+// Main handler factory
 // ---------------------------------------------------------------------------
 
-export async function redirectHandler(
-  req: HttpRequest,
-  context: InvocationContext,
-): Promise<HttpResponseInit> {
-  try {
-    // --- Extract alias from route param ---
-    const rawAlias = req.params.alias;
-    if (!rawAlias) {
-      return { status: 302, headers: { location: "/" } };
-    }
-    const alias = rawAlias.toLowerCase();
-
-    // --- Extract user identity ---
-    const authProvider = createAuthProvider();
-    const headers: Record<string, string> = {};
-    req.headers.forEach((value, key) => {
-      headers[key.toLowerCase()] = value;
-    });
-    const identity = authProvider.extractIdentity(headers);
-    if (!identity) {
-      return { status: 401, body: "Unauthorized" };
-    }
-
-    // --- Parse incoming query params and fragment ---
-    const incomingUrl = new URL(req.url);
-    const incomingQuery = new URLSearchParams(incomingUrl.search);
-    // Remove the internal route params that Azure Functions may add
-    // Fragment is not sent to the server, but we handle it if present
-    const incomingFragment: string | null = incomingUrl.hash
-      ? incomingUrl.hash
-      : null;
-
-    // --- Look up aliases ---
-    const privateId = `${alias}:${identity.email}`;
-    let privateAlias: AliasRecord | undefined;
-    let globalAlias: AliasRecord | undefined;
-
+export function createRedirectHandler(strategy: AuthStrategy) {
+  return async function redirectHandler(
+    req: HttpRequest,
+    context: InvocationContext,
+  ): Promise<HttpResponseInit> {
     try {
-      [privateAlias, globalAlias] = await Promise.all([
-        getAliasByPartition(alias, privateId),
-        getAliasByPartition(alias, alias),
-      ]);
+      // --- Extract alias from route param ---
+      const rawAlias = req.params.alias;
+      if (!rawAlias) {
+        return { status: 302, headers: { location: "/" } };
+      }
+      const alias = rawAlias.toLowerCase();
+
+      // --- Extract user identity ---
+      const headers: Record<string, string> = {};
+      req.headers.forEach((value, key) => {
+        headers[key.toLowerCase()] = value;
+      });
+      const identity = strategy.extractIdentity(headers);
+
+      // --- Auth branching ---
+      if (strategy.redirectRequiresAuth && !identity) {
+        // Corporate mode: must be authenticated
+        return { status: 401, body: "Unauthorized" };
+      }
+
+      // --- Parse incoming query params and fragment ---
+      const incomingUrl = new URL(req.url);
+      const incomingQuery = new URLSearchParams(incomingUrl.search);
+      const incomingFragment: string | null = incomingUrl.hash
+        ? incomingUrl.hash
+        : null;
+
+      // --- Look up aliases ---
+      let privateAlias: AliasRecord | undefined;
+      let globalAlias: AliasRecord | undefined;
+
+      try {
+        if (identity) {
+          // Authenticated: look up both private and global
+          const privateId = `${alias}:${identity.email}`;
+          [privateAlias, globalAlias] = await Promise.all([
+            getAliasByPartition(alias, privateId),
+            getAliasByPartition(alias, alias),
+          ]);
+        } else {
+          // Unauthenticated (redirectRequiresAuth is false): only global lookup
+          globalAlias = await getAliasByPartition(alias, alias);
+        }
+      } catch (err: any) {
+        context.error("Database error during alias lookup:", err);
+        return {
+          status: 500,
+          body: "An internal error occurred. Please try again later.",
+        };
+      }
+
+      // --- For unauthenticated users, filter out private global aliases ---
+      if (!identity && globalAlias?.is_private) {
+        globalAlias = undefined;
+      }
+
+      const now = new Date();
+
+      // --- Determine which record(s) matched ---
+      const hasPrivate = !!privateAlias;
+      const hasGlobal = !!globalAlias;
+
+      // Check expiry on matched records — treat expired records as non-existent
+      const privateExpired = privateAlias?.expiry_status === "expired";
+      const globalExpired = globalAlias?.expiry_status === "expired";
+
+      const effectivePrivate = hasPrivate && !privateExpired;
+      const effectiveGlobal = hasGlobal && !globalExpired;
+
+      // If both exist but both are expired, return expired redirect
+      if (hasPrivate && hasGlobal && privateExpired && globalExpired) {
+        return {
+          status: 302,
+          headers: {
+            location: `/?expired=${encodeURIComponent(alias)}`,
+          },
+        };
+      }
+
+      // If only match(es) are expired, return expired redirect
+      if (
+        (hasPrivate && !hasGlobal && privateExpired) ||
+        (!hasPrivate && hasGlobal && globalExpired)
+      ) {
+        return {
+          status: 302,
+          headers: {
+            location: `/?expired=${encodeURIComponent(alias)}`,
+          },
+        };
+      }
+
+      // --- Neither found ---
+      if (!effectivePrivate && !effectiveGlobal) {
+        return {
+          status: 302,
+          headers: {
+            location: `/?suggest=${encodeURIComponent(alias)}`,
+          },
+        };
+      }
+
+      // --- Both found (interstitial) ---
+      if (effectivePrivate && effectiveGlobal) {
+        const privateDestination = mergeUrls(
+          privateAlias!.destination_url,
+          incomingQuery,
+          incomingFragment,
+        );
+        const globalDestination = mergeUrls(
+          globalAlias!.destination_url,
+          incomingQuery,
+          incomingFragment,
+        );
+
+        const interstitialUrl =
+          `/interstitial?alias=${encodeURIComponent(alias)}` +
+          `&privateUrl=${encodeURIComponent(privateDestination)}` +
+          `&globalUrl=${encodeURIComponent(globalDestination)}`;
+
+        return {
+          status: 302,
+          headers: { location: interstitialUrl },
+        };
+      }
+
+      // --- Single match: redirect ---
+      const matchedRecord = effectivePrivate ? privateAlias! : globalAlias!;
+      const destination = mergeUrls(
+        matchedRecord.destination_url,
+        incomingQuery,
+        incomingFragment,
+      );
+
+      // Fire-and-forget side effects (analytics + inactivity reset)
+      try {
+        await applyRedirectSideEffects(matchedRecord, now);
+      } catch (err: any) {
+        context.error("Failed to update analytics:", err);
+      }
+
+      return {
+        status: 302,
+        headers: { location: destination },
+      };
     } catch (err: any) {
-      context.error("Database error during alias lookup:", err);
+      context.error("Unexpected error in redirect handler:", err);
       return {
         status: 500,
         body: "An internal error occurred. Please try again later.",
       };
     }
-
-    const now = new Date();
-
-    // --- Determine which record(s) matched ---
-    const hasPrivate = !!privateAlias;
-    const hasGlobal = !!globalAlias;
-
-    // Check expiry on matched records — treat expired records as non-existent
-    // for resolution, but still return 410 if the only match is expired.
-    const privateExpired = privateAlias?.expiry_status === "expired";
-    const globalExpired = globalAlias?.expiry_status === "expired";
-
-    const effectivePrivate = hasPrivate && !privateExpired;
-    const effectiveGlobal = hasGlobal && !globalExpired;
-
-    // If both exist but both are expired, return 410
-    if (hasPrivate && hasGlobal && privateExpired && globalExpired) {
-      return {
-        status: 302,
-        headers: {
-          location: `/?expired=${encodeURIComponent(alias)}`,
-        },
-      };
-    }
-
-    // If only match(es) are expired, return 410 with dashboard redirect
-    if (
-      (hasPrivate && !hasGlobal && privateExpired) ||
-      (!hasPrivate && hasGlobal && globalExpired)
-    ) {
-      return {
-        status: 302,
-        headers: {
-          location: `/?expired=${encodeURIComponent(alias)}`,
-        },
-      };
-    }
-
-    // --- Neither found ---
-    if (!effectivePrivate && !effectiveGlobal) {
-      return {
-        status: 302,
-        headers: {
-          location: `/?suggest=${encodeURIComponent(alias)}`,
-        },
-      };
-    }
-
-    // --- Both found (interstitial) ---
-    if (effectivePrivate && effectiveGlobal) {
-      const privateDestination = mergeUrls(
-        privateAlias!.destination_url,
-        incomingQuery,
-        incomingFragment,
-      );
-      const globalDestination = mergeUrls(
-        globalAlias!.destination_url,
-        incomingQuery,
-        incomingFragment,
-      );
-
-      // Redirect to the SPA interstitial route so the themed React component
-      // handles the conflict resolution UI.
-      const interstitialUrl =
-        `/interstitial?alias=${encodeURIComponent(alias)}` +
-        `&privateUrl=${encodeURIComponent(privateDestination)}` +
-        `&globalUrl=${encodeURIComponent(globalDestination)}`;
-
-      return {
-        status: 302,
-        headers: { location: interstitialUrl },
-      };
-    }
-
-    // --- Single match: redirect ---
-    const matchedRecord = effectivePrivate ? privateAlias! : globalAlias!;
-    const destination = mergeUrls(
-      matchedRecord.destination_url,
-      incomingQuery,
-      incomingFragment,
-    );
-
-    // Fire-and-forget side effects (analytics + inactivity reset)
-    try {
-      await applyRedirectSideEffects(matchedRecord, now);
-    } catch (err: any) {
-      // Log but don't block the redirect
-      context.error("Failed to update analytics:", err);
-    }
-
-    return {
-      status: 302,
-      headers: { location: destination },
-    };
-  } catch (err: any) {
-    context.error("Unexpected error in redirect handler:", err);
-    return {
-      status: 500,
-      body: "An internal error occurred. Please try again later.",
-    };
-  }
+  };
 }
 
 // ---------------------------------------------------------------------------
 // Register the Azure Function
 // ---------------------------------------------------------------------------
 
-app.http("redirect", {
-  methods: ["GET"],
-  authLevel: "anonymous",
-  route: "{alias}",
-  handler: redirectHandler,
-});
+export function registerRedirect(strategy: AuthStrategy): void {
+  app.http("redirect", {
+    methods: ["GET"],
+    authLevel: "anonymous",
+    route: "{alias}",
+    handler: createRedirectHandler(strategy),
+  });
+}

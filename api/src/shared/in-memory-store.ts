@@ -1,7 +1,7 @@
 /**
  * In-memory data store that replaces Cosmos DB for local development.
  *
- * Activated when DEV_MODE=true and COSMOS_CONNECTION_STRING is not set
+ * Activated when AUTH_MODE=dev and COSMOS_CONNECTION_STRING is not set
  * (or set to the placeholder value). Provides the same query semantics
  * as the Cosmos DB container so the rest of the codebase works unchanged.
  */

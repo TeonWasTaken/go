@@ -4,6 +4,7 @@
 
 import type { HttpRequest, InvocationContext } from "@azure/functions";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { AuthStrategy } from "../../src/shared/auth-strategy.js";
 import type { AliasRecord } from "../../src/shared/models.js";
 
 // ---------------------------------------------------------------------------
@@ -19,12 +20,7 @@ vi.mock("../../src/shared/cosmos-client.js", () => ({
   deleteAlias: vi.fn(),
 }));
 
-vi.mock("../../src/shared/auth-provider.js", () => ({
-  createAuthProvider: vi.fn(),
-}));
-
-import { deleteLinkHandler } from "../../src/functions/deleteLink.js";
-import { createAuthProvider } from "../../src/shared/auth-provider.js";
+import { createDeleteLinkHandler } from "../../src/functions/deleteLink.js";
 import {
   deleteAlias,
   getAliasByPartition,
@@ -32,11 +28,26 @@ import {
 
 const mockGetAlias = vi.mocked(getAliasByPartition);
 const mockDeleteAlias = vi.mocked(deleteAlias);
-const mockCreateAuthProvider = vi.mocked(createAuthProvider);
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+function makeMockStrategy(overrides: Partial<AuthStrategy> = {}): AuthStrategy {
+  return {
+    mode: "dev",
+    redirectRequiresAuth: false,
+    identityProviders: ["dev"],
+    extractIdentity: (headers: Record<string, string>) => {
+      const e = headers["x-mock-user-email"] || "alice@example.com";
+      const r = (headers["x-mock-user-roles"] || "User")
+        .split(",")
+        .map((s: string) => s.trim());
+      return { email: e, roles: r };
+    },
+    ...overrides,
+  };
+}
 
 function makeRequest(
   alias: string,
@@ -87,31 +98,14 @@ function makeAlias(overrides: Partial<AliasRecord> = {}): AliasRecord {
 }
 
 // ---------------------------------------------------------------------------
-// Auth helper factory
-// ---------------------------------------------------------------------------
-
-function makeAuthProvider(
-  email: string = "alice@example.com",
-  roles: string[] = ["User"],
-) {
-  return {
-    extractIdentity: (headers: Record<string, string>) => {
-      const e = headers["x-mock-user-email"] || email;
-      const r = (headers["x-mock-user-roles"] || roles.join(","))
-        .split(",")
-        .map((s: string) => s.trim());
-      return { email: e, roles: r };
-    },
-  };
-}
-
-// ---------------------------------------------------------------------------
 // Setup
 // ---------------------------------------------------------------------------
 
+let strategy: AuthStrategy;
+
 beforeEach(() => {
   vi.clearAllMocks();
-  mockCreateAuthProvider.mockReturnValue(makeAuthProvider());
+  strategy = makeMockStrategy();
   mockDeleteAlias.mockResolvedValue(undefined);
 });
 
@@ -121,16 +115,16 @@ beforeEach(() => {
 
 describe("deleteLink handler", () => {
   it("returns 401 for unauthenticated request", async () => {
-    mockCreateAuthProvider.mockReturnValue({
-      extractIdentity: () => null,
-    });
-    const res = await deleteLinkHandler(makeRequest("my-link"), makeContext());
+    strategy = makeMockStrategy({ extractIdentity: () => null });
+    const handler = createDeleteLinkHandler(strategy);
+    const res = await handler(makeRequest("my-link"), makeContext());
     expect(res.status).toBe(401);
   });
 
   it("returns 404 when alias not found", async () => {
     mockGetAlias.mockResolvedValue(undefined);
-    const res = await deleteLinkHandler(makeRequest("no-exist"), makeContext());
+    const handler = createDeleteLinkHandler(strategy);
+    const res = await handler(makeRequest("no-exist"), makeContext());
     expect(res.status).toBe(404);
     expect(res.body).toContain("not found");
   });
@@ -142,7 +136,8 @@ describe("deleteLink handler", () => {
       return undefined;
     });
 
-    const res = await deleteLinkHandler(makeRequest("my-link"), makeContext());
+    const handler = createDeleteLinkHandler(strategy);
+    const res = await handler(makeRequest("my-link"), makeContext());
     expect(res.status).toBe(403);
   });
 
@@ -152,15 +147,19 @@ describe("deleteLink handler", () => {
       created_by: "bob@example.com",
       is_private: true,
     });
-    mockCreateAuthProvider.mockReturnValue(
-      makeAuthProvider("alice@example.com", ["Admin"]),
-    );
+    strategy = makeMockStrategy({
+      extractIdentity: (headers: Record<string, string>) => ({
+        email: headers["x-mock-user-email"] || "alice@example.com",
+        roles: ["Admin"],
+      }),
+    });
     mockGetAlias.mockImplementation(async (_alias, id) => {
       if (id === "my-link:alice@example.com") return record;
       return undefined;
     });
 
-    const res = await deleteLinkHandler(makeRequest("my-link"), makeContext());
+    const handler = createDeleteLinkHandler(strategy);
+    const res = await handler(makeRequest("my-link"), makeContext());
     expect(res.status).toBe(403);
   });
 
@@ -171,22 +170,27 @@ describe("deleteLink handler", () => {
       return undefined;
     });
 
-    const res = await deleteLinkHandler(makeRequest("my-link"), makeContext());
+    const handler = createDeleteLinkHandler(strategy);
+    const res = await handler(makeRequest("my-link"), makeContext());
     expect(res.status).toBe(204);
     expect(mockDeleteAlias).toHaveBeenCalledWith("my-link", "my-link");
   });
 
   it("returns 204 for admin deleting any global alias", async () => {
     const record = makeAlias({ created_by: "bob@example.com" });
-    mockCreateAuthProvider.mockReturnValue(
-      makeAuthProvider("alice@example.com", ["Admin"]),
-    );
+    strategy = makeMockStrategy({
+      extractIdentity: (headers: Record<string, string>) => ({
+        email: headers["x-mock-user-email"] || "alice@example.com",
+        roles: ["Admin"],
+      }),
+    });
     mockGetAlias.mockImplementation(async (_alias, id) => {
       if (id === "my-link") return record;
       return undefined;
     });
 
-    const res = await deleteLinkHandler(
+    const handler = createDeleteLinkHandler(strategy);
+    const res = await handler(
       makeRequest("my-link", {
         "x-mock-user-email": "alice@example.com",
         "x-mock-user-roles": "Admin",
@@ -208,7 +212,8 @@ describe("deleteLink handler", () => {
       return undefined;
     });
 
-    const res = await deleteLinkHandler(makeRequest("my-link"), makeContext());
+    const handler = createDeleteLinkHandler(strategy);
+    const res = await handler(makeRequest("my-link"), makeContext());
     expect(res.status).toBe(204);
     expect(mockDeleteAlias).toHaveBeenCalledWith(
       "my-link",
@@ -219,7 +224,8 @@ describe("deleteLink handler", () => {
   it("returns 500 on unexpected error", async () => {
     mockGetAlias.mockRejectedValue(new Error("DB failure"));
     const ctx = makeContext();
-    const res = await deleteLinkHandler(makeRequest("my-link"), ctx);
+    const handler = createDeleteLinkHandler(strategy);
+    const res = await handler(makeRequest("my-link"), ctx);
     expect(res.status).toBe(500);
     expect(ctx.error).toHaveBeenCalled();
   });

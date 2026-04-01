@@ -4,6 +4,7 @@
 
 import type { HttpRequest, InvocationContext } from "@azure/functions";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { AuthStrategy } from "../../src/shared/auth-strategy.js";
 import type { AliasRecord } from "../../src/shared/models.js";
 
 // ---------------------------------------------------------------------------
@@ -19,12 +20,7 @@ vi.mock("../../src/shared/cosmos-client.js", () => ({
   updateAlias: vi.fn(),
 }));
 
-vi.mock("../../src/shared/auth-provider.js", () => ({
-  createAuthProvider: vi.fn(),
-}));
-
-import { renewLinkHandler } from "../../src/functions/renewLink.js";
-import { createAuthProvider } from "../../src/shared/auth-provider.js";
+import { createRenewLinkHandler } from "../../src/functions/renewLink.js";
 import {
   getAliasByPartition,
   updateAlias,
@@ -32,11 +28,23 @@ import {
 
 const mockGetAlias = vi.mocked(getAliasByPartition);
 const mockUpdateAlias = vi.mocked(updateAlias);
-const mockCreateAuthProvider = vi.mocked(createAuthProvider);
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+function makeMockStrategy(overrides: Partial<AuthStrategy> = {}): AuthStrategy {
+  return {
+    mode: "dev",
+    redirectRequiresAuth: false,
+    identityProviders: ["dev"],
+    extractIdentity: (headers: Record<string, string>) => ({
+      email: headers["x-mock-user-email"] || "alice@example.com",
+      roles: (headers["x-mock-user-roles"] || "User").split(","),
+    }),
+    ...overrides,
+  };
+}
 
 function makeRequest(
   alias: string,
@@ -87,31 +95,14 @@ function makeAlias(overrides: Partial<AliasRecord> = {}): AliasRecord {
 }
 
 // ---------------------------------------------------------------------------
-// Auth helper factory
-// ---------------------------------------------------------------------------
-
-function makeAuthProvider(
-  email: string = "alice@example.com",
-  roles: string[] = ["User"],
-) {
-  return {
-    extractIdentity: (headers: Record<string, string>) => {
-      const e = headers["x-mock-user-email"] || email;
-      const r = (headers["x-mock-user-roles"] || roles.join(","))
-        .split(",")
-        .map((s: string) => s.trim());
-      return { email: e, roles: r };
-    },
-  };
-}
-
-// ---------------------------------------------------------------------------
 // Setup
 // ---------------------------------------------------------------------------
 
+let strategy: AuthStrategy;
+
 beforeEach(() => {
   vi.clearAllMocks();
-  mockCreateAuthProvider.mockReturnValue(makeAuthProvider());
+  strategy = makeMockStrategy();
   mockUpdateAlias.mockImplementation(async (record) => record);
 });
 
@@ -120,17 +111,17 @@ beforeEach(() => {
 // ---------------------------------------------------------------------------
 
 describe("renewLink handler", () => {
-  it("returns 401 for unauthenticated request", async () => {
-    mockCreateAuthProvider.mockReturnValue({
-      extractIdentity: () => null,
-    });
-    const res = await renewLinkHandler(makeRequest("my-link"), makeContext());
+  it("returns 401 when strategy returns null identity", async () => {
+    strategy = makeMockStrategy({ extractIdentity: () => null });
+    const handler = createRenewLinkHandler(strategy);
+    const res = await handler(makeRequest("my-link"), makeContext());
     expect(res.status).toBe(401);
   });
 
   it("returns 404 when alias not found", async () => {
     mockGetAlias.mockResolvedValue(undefined);
-    const res = await renewLinkHandler(makeRequest("no-exist"), makeContext());
+    const handler = createRenewLinkHandler(strategy);
+    const res = await handler(makeRequest("no-exist"), makeContext());
     expect(res.status).toBe(404);
     expect(res.body).toContain("not found");
   });
@@ -142,7 +133,8 @@ describe("renewLink handler", () => {
       return undefined;
     });
 
-    const res = await renewLinkHandler(makeRequest("my-link"), makeContext());
+    const handler = createRenewLinkHandler(strategy);
+    const res = await handler(makeRequest("my-link"), makeContext());
     expect(res.status).toBe(403);
   });
 
@@ -152,15 +144,19 @@ describe("renewLink handler", () => {
       created_by: "bob@example.com",
       is_private: true,
     });
-    mockCreateAuthProvider.mockReturnValue(
-      makeAuthProvider("alice@example.com", ["Admin"]),
-    );
+    strategy = makeMockStrategy({
+      extractIdentity: () => ({
+        email: "alice@example.com",
+        roles: ["Admin"],
+      }),
+    });
     mockGetAlias.mockImplementation(async (_alias, id) => {
       if (id === "my-link:alice@example.com") return record;
       return undefined;
     });
 
-    const res = await renewLinkHandler(makeRequest("my-link"), makeContext());
+    const handler = createRenewLinkHandler(strategy);
+    const res = await handler(makeRequest("my-link"), makeContext());
     expect(res.status).toBe(403);
   });
 
@@ -177,7 +173,8 @@ describe("renewLink handler", () => {
       return undefined;
     });
 
-    const res = await renewLinkHandler(makeRequest("my-link"), makeContext());
+    const handler = createRenewLinkHandler(strategy);
+    const res = await handler(makeRequest("my-link"), makeContext());
     expect(res.status).toBe(200);
     const body = JSON.parse(res.body as string);
     expect(body.expiry_status).toBe("active");
@@ -191,15 +188,19 @@ describe("renewLink handler", () => {
       expiry_status: "expired",
       expired_at: new Date(Date.now() - 86400_000).toISOString(),
     });
-    mockCreateAuthProvider.mockReturnValue(
-      makeAuthProvider("alice@example.com", ["Admin"]),
-    );
+    strategy = makeMockStrategy({
+      extractIdentity: () => ({
+        email: "alice@example.com",
+        roles: ["Admin"],
+      }),
+    });
     mockGetAlias.mockImplementation(async (_alias, id) => {
       if (id === "my-link") return record;
       return undefined;
     });
 
-    const res = await renewLinkHandler(
+    const handler = createRenewLinkHandler(strategy);
+    const res = await handler(
       makeRequest("my-link", {
         "x-mock-user-email": "alice@example.com",
         "x-mock-user-roles": "Admin",
@@ -225,8 +226,9 @@ describe("renewLink handler", () => {
       return undefined;
     });
 
+    const handler = createRenewLinkHandler(strategy);
     const before = Date.now();
-    const res = await renewLinkHandler(makeRequest("my-link"), makeContext());
+    const res = await handler(makeRequest("my-link"), makeContext());
     expect(res.status).toBe(200);
     const body = JSON.parse(res.body as string);
 
@@ -251,8 +253,9 @@ describe("renewLink handler", () => {
       return undefined;
     });
 
+    const handler = createRenewLinkHandler(strategy);
     const before = Date.now();
-    const res = await renewLinkHandler(makeRequest("my-link"), makeContext());
+    const res = await handler(makeRequest("my-link"), makeContext());
     expect(res.status).toBe(200);
     const body = JSON.parse(res.body as string);
 
@@ -266,8 +269,9 @@ describe("renewLink handler", () => {
 
   it("returns 500 on unexpected error", async () => {
     mockGetAlias.mockRejectedValue(new Error("DB failure"));
+    const handler = createRenewLinkHandler(strategy);
     const ctx = makeContext();
-    const res = await renewLinkHandler(makeRequest("my-link"), ctx);
+    const res = await handler(makeRequest("my-link"), ctx);
     expect(res.status).toBe(500);
     expect(ctx.error).toHaveBeenCalled();
   });

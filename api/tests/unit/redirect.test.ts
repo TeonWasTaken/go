@@ -4,6 +4,7 @@
 
 import type { HttpRequest, InvocationContext } from "@azure/functions";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { AuthStrategy } from "../../src/shared/auth-strategy.js";
 import type { AliasRecord } from "../../src/shared/models.js";
 
 // ---------------------------------------------------------------------------
@@ -19,12 +20,7 @@ vi.mock("../../src/shared/cosmos-client.js", () => ({
   updateAlias: vi.fn(),
 }));
 
-vi.mock("../../src/shared/auth-provider.js", () => ({
-  createAuthProvider: vi.fn(),
-}));
-
-import { redirectHandler } from "../../src/functions/redirect.js";
-import { createAuthProvider } from "../../src/shared/auth-provider.js";
+import { createRedirectHandler } from "../../src/functions/redirect.js";
 import {
   getAliasByPartition,
   updateAlias,
@@ -32,11 +28,23 @@ import {
 
 const mockGetAlias = vi.mocked(getAliasByPartition);
 const mockUpdateAlias = vi.mocked(updateAlias);
-const mockCreateAuthProvider = vi.mocked(createAuthProvider);
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+function makeMockStrategy(overrides: Partial<AuthStrategy> = {}): AuthStrategy {
+  return {
+    mode: "dev",
+    redirectRequiresAuth: false,
+    identityProviders: ["dev"],
+    extractIdentity: (headers: Record<string, string>) => ({
+      email: headers["x-mock-user-email"] || "alice@example.com",
+      roles: (headers["x-mock-user-roles"] || "User").split(","),
+    }),
+    ...overrides,
+  };
+}
 
 function makeRequest(
   alias: string,
@@ -92,33 +100,33 @@ function makeAlias(overrides: Partial<AliasRecord> = {}): AliasRecord {
 // Setup
 // ---------------------------------------------------------------------------
 
+let strategy: AuthStrategy;
+
 beforeEach(() => {
   vi.clearAllMocks();
-  mockCreateAuthProvider.mockReturnValue({
-    extractIdentity: (headers: Record<string, string>) => ({
-      email: headers["x-mock-user-email"] || "alice@example.com",
-      roles: (headers["x-mock-user-roles"] || "User").split(","),
-    }),
-  });
+  strategy = makeMockStrategy();
   mockUpdateAlias.mockResolvedValue(undefined as any);
 });
 
 // ---------------------------------------------------------------------------
-// Tests
+// Tests — existing behavior (authenticated, redirectRequiresAuth=false)
 // ---------------------------------------------------------------------------
 
 describe("redirect handler", () => {
-  it("returns 401 when auth provider returns null", async () => {
-    mockCreateAuthProvider.mockReturnValue({
+  it("returns 401 when redirectRequiresAuth is true and identity is null", async () => {
+    strategy = makeMockStrategy({
+      redirectRequiresAuth: true,
       extractIdentity: () => null,
     });
-    const res = await redirectHandler(makeRequest("test"), makeContext());
+    const handler = createRedirectHandler(strategy);
+    const res = await handler(makeRequest("test"), makeContext());
     expect(res.status).toBe(401);
   });
 
   it("redirects to dashboard with suggest param when alias not found", async () => {
     mockGetAlias.mockResolvedValue(undefined);
-    const res = await redirectHandler(makeRequest("unknown"), makeContext());
+    const handler = createRedirectHandler(strategy);
+    const res = await handler(makeRequest("unknown"), makeContext());
     expect(res.status).toBe(302);
     expect(res.headers).toHaveProperty("location");
     const location = (res.headers as Record<string, string>).location;
@@ -131,7 +139,8 @@ describe("redirect handler", () => {
       if (id === "docs") return global;
       return undefined;
     });
-    const res = await redirectHandler(makeRequest("docs"), makeContext());
+    const handler = createRedirectHandler(strategy);
+    const res = await handler(makeRequest("docs"), makeContext());
     expect(res.status).toBe(302);
     expect((res.headers as any).location).toBe(
       "https://example.com/destination",
@@ -149,7 +158,8 @@ describe("redirect handler", () => {
       if (id === "docs:alice@example.com") return priv;
       return undefined;
     });
-    const res = await redirectHandler(makeRequest("docs"), makeContext());
+    const handler = createRedirectHandler(strategy);
+    const res = await handler(makeRequest("docs"), makeContext());
     expect(res.status).toBe(302);
     expect((res.headers as any).location).toBe("https://private.example.com/");
   });
@@ -172,7 +182,8 @@ describe("redirect handler", () => {
       if (id === "docs") return global;
       return undefined;
     });
-    const res = await redirectHandler(makeRequest("docs"), makeContext());
+    const handler = createRedirectHandler(strategy);
+    const res = await handler(makeRequest("docs"), makeContext());
     expect(res.status).toBe(302);
     const location = (res.headers as any).location as string;
     expect(location).toContain("/interstitial");
@@ -183,7 +194,8 @@ describe("redirect handler", () => {
 
   it("normalizes alias to lowercase", async () => {
     mockGetAlias.mockResolvedValue(undefined);
-    await redirectHandler(makeRequest("MyAlias"), makeContext());
+    const handler = createRedirectHandler(strategy);
+    await handler(makeRequest("MyAlias"), makeContext());
     expect(mockGetAlias).toHaveBeenCalledWith(
       "myalias",
       "myalias:alice@example.com",
@@ -197,7 +209,8 @@ describe("redirect handler", () => {
       if (id === "test") return record;
       return undefined;
     });
-    await redirectHandler(makeRequest("test"), makeContext());
+    const handler = createRedirectHandler(strategy);
+    await handler(makeRequest("test"), makeContext());
     expect(mockUpdateAlias).toHaveBeenCalledTimes(1);
     const updated = mockUpdateAlias.mock.calls[0][0];
     expect(updated.click_count).toBe(11);
@@ -211,7 +224,8 @@ describe("redirect handler", () => {
       if (id === "test") return expired;
       return undefined;
     });
-    const res = await redirectHandler(makeRequest("test"), makeContext());
+    const handler = createRedirectHandler(strategy);
+    const res = await handler(makeRequest("test"), makeContext());
     expect(res.status).toBe(302);
     expect((res.headers as any).location).toContain("expired=test");
   });
@@ -225,10 +239,10 @@ describe("redirect handler", () => {
       if (id === "test") return record;
       return undefined;
     });
-    await redirectHandler(makeRequest("test"), makeContext());
+    const handler = createRedirectHandler(strategy);
+    await handler(makeRequest("test"), makeContext());
     const updated = mockUpdateAlias.mock.calls[0][0];
     const newExpiry = new Date(updated.expires_at!);
-    // Should be approximately 12 months from now
     const elevenMonths = Date.now() + 86400_000 * 330;
     expect(newExpiry.getTime()).toBeGreaterThan(elevenMonths);
   });
@@ -241,7 +255,8 @@ describe("redirect handler", () => {
       if (id === "test") return record;
       return undefined;
     });
-    const res = await redirectHandler(
+    const handler = createRedirectHandler(strategy);
+    const res = await handler(
       makeRequest("test", { query: "?extra=2" }),
       makeContext(),
     );
@@ -253,8 +268,9 @@ describe("redirect handler", () => {
 
   it("returns 500 on database error during lookup", async () => {
     mockGetAlias.mockRejectedValue(new Error("DB connection failed"));
+    const handler = createRedirectHandler(strategy);
     const ctx = makeContext();
-    const res = await redirectHandler(makeRequest("test"), ctx);
+    const res = await handler(makeRequest("test"), ctx);
     expect(res.status).toBe(500);
     expect(ctx.error).toHaveBeenCalled();
   });
@@ -266,8 +282,9 @@ describe("redirect handler", () => {
       return undefined;
     });
     mockUpdateAlias.mockRejectedValue(new Error("write failed"));
+    const handler = createRedirectHandler(strategy);
     const ctx = makeContext();
-    const res = await redirectHandler(makeRequest("test"), ctx);
+    const res = await handler(makeRequest("test"), ctx);
     expect(res.status).toBe(302);
     expect(ctx.error).toHaveBeenCalled();
   });
@@ -279,8 +296,143 @@ describe("redirect handler", () => {
       headers: new Headers({ "x-mock-user-email": "alice@example.com" }),
       method: "GET",
     } as unknown as HttpRequest;
-    const res = await redirectHandler(req, makeContext());
+    const handler = createRedirectHandler(strategy);
+    const res = await handler(req, makeContext());
     expect(res.status).toBe(302);
     expect((res.headers as any).location).toBe("/");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tests — redirectRequiresAuth branching logic
+// ---------------------------------------------------------------------------
+
+describe("redirect handler — redirectRequiresAuth branching", () => {
+  it("returns 401 when redirectRequiresAuth=true and identity is null (corporate mode)", async () => {
+    strategy = makeMockStrategy({
+      mode: "corporate",
+      redirectRequiresAuth: true,
+      extractIdentity: () => null,
+    });
+    const handler = createRedirectHandler(strategy);
+    const res = await handler(makeRequest("test"), makeContext());
+    expect(res.status).toBe(401);
+    expect(mockGetAlias).not.toHaveBeenCalled();
+  });
+
+  it("resolves both private and global when redirectRequiresAuth=true and identity present", async () => {
+    strategy = makeMockStrategy({
+      mode: "corporate",
+      redirectRequiresAuth: true,
+    });
+    const global = makeAlias({ id: "docs", alias: "docs", is_private: false });
+    mockGetAlias.mockImplementation(async (_alias, id) => {
+      if (id === "docs") return global;
+      return undefined;
+    });
+    const handler = createRedirectHandler(strategy);
+    const res = await handler(makeRequest("docs"), makeContext());
+    expect(res.status).toBe(302);
+    // Should have looked up both private and global
+    expect(mockGetAlias).toHaveBeenCalledWith("docs", "docs:alice@example.com");
+    expect(mockGetAlias).toHaveBeenCalledWith("docs", "docs");
+  });
+
+  it("skips private lookup when redirectRequiresAuth=false and identity is null", async () => {
+    strategy = makeMockStrategy({
+      mode: "public",
+      redirectRequiresAuth: false,
+      extractIdentity: () => null,
+    });
+    const global = makeAlias({ id: "docs", alias: "docs", is_private: false });
+    mockGetAlias.mockImplementation(async (_alias, id) => {
+      if (id === "docs") return global;
+      return undefined;
+    });
+    const handler = createRedirectHandler(strategy);
+    const res = await handler(makeRequest("docs"), makeContext());
+    expect(res.status).toBe(302);
+    expect((res.headers as any).location).toBe(
+      "https://example.com/destination",
+    );
+    // Should only have looked up global, NOT private
+    expect(mockGetAlias).toHaveBeenCalledTimes(1);
+    expect(mockGetAlias).toHaveBeenCalledWith("docs", "docs");
+  });
+
+  it("treats private global alias as not found when unauthenticated", async () => {
+    strategy = makeMockStrategy({
+      mode: "public",
+      redirectRequiresAuth: false,
+      extractIdentity: () => null,
+    });
+    const privateGlobal = makeAlias({
+      id: "secret",
+      alias: "secret",
+      is_private: true,
+      destination_url: "https://secret.example.com",
+    });
+    mockGetAlias.mockImplementation(async (_alias, id) => {
+      if (id === "secret") return privateGlobal;
+      return undefined;
+    });
+    const handler = createRedirectHandler(strategy);
+    const res = await handler(makeRequest("secret"), makeContext());
+    expect(res.status).toBe(302);
+    const location = (res.headers as any).location as string;
+    expect(location).toContain("suggest=secret");
+  });
+
+  it("resolves both private and global when redirectRequiresAuth=false and identity present", async () => {
+    strategy = makeMockStrategy({
+      mode: "public",
+      redirectRequiresAuth: false,
+    });
+    const priv = makeAlias({
+      id: "docs:alice@example.com",
+      alias: "docs",
+      is_private: true,
+      destination_url: "https://private.example.com",
+    });
+    const global = makeAlias({
+      id: "docs",
+      alias: "docs",
+      is_private: false,
+      destination_url: "https://global.example.com",
+    });
+    mockGetAlias.mockImplementation(async (_alias, id) => {
+      if (id === "docs:alice@example.com") return priv;
+      if (id === "docs") return global;
+      return undefined;
+    });
+    const handler = createRedirectHandler(strategy);
+    const res = await handler(makeRequest("docs"), makeContext());
+    expect(res.status).toBe(302);
+    const location = (res.headers as any).location as string;
+    expect(location).toContain("/interstitial");
+    // Should have looked up both
+    expect(mockGetAlias).toHaveBeenCalledWith("docs", "docs:alice@example.com");
+    expect(mockGetAlias).toHaveBeenCalledWith("docs", "docs");
+  });
+
+  it("resolves only private alias when redirectRequiresAuth=false, identity present, only private exists", async () => {
+    strategy = makeMockStrategy({
+      mode: "public",
+      redirectRequiresAuth: false,
+    });
+    const priv = makeAlias({
+      id: "docs:alice@example.com",
+      alias: "docs",
+      is_private: true,
+      destination_url: "https://private.example.com",
+    });
+    mockGetAlias.mockImplementation(async (_alias, id) => {
+      if (id === "docs:alice@example.com") return priv;
+      return undefined;
+    });
+    const handler = createRedirectHandler(strategy);
+    const res = await handler(makeRequest("docs"), makeContext());
+    expect(res.status).toBe(302);
+    expect((res.headers as any).location).toBe("https://private.example.com/");
   });
 });
