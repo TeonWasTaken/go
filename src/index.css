@@ -1533,3 +1533,50 @@ body {
   font-size: 1.125rem;
   padding: 0.875rem 2.5rem;
 }
+
+/* ── User badge ── */
+.user-badge {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.user-badge__avatar-wrapper {
+  position: relative;
+  width: 2rem;
+  height: 2rem;
+}
+
+.user-badge__avatar-img {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
+}
+
+.user-badge__avatar-initial {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  background: linear-gradient(
+    135deg,
+    var(--color-primary),
+    var(--color-accent)
+  );
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.user-badge__crown {
+  position: absolute;
+  bottom: -4px;
+  right: -4px;
+  font-size: 0.7rem;
+  line-height: 1;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
+}

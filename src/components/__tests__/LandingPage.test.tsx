@@ -32,6 +32,7 @@ vi.mock("../../services/api", () => ({
     identityProviders: ["dev"],
     loginUrl: "",
     aliasPrefix: "go",
+    allowPublicCreate: true,
   }),
 }));
 
@@ -54,6 +55,7 @@ describe("LandingPage auth mode adaptation", () => {
       identityProviders: ["google"],
       loginUrl: "/.auth/login/google",
       aliasPrefix: "go",
+      allowPublicCreate: true,
     });
 
     expect(
@@ -72,6 +74,7 @@ describe("LandingPage auth mode adaptation", () => {
       identityProviders: ["google"],
       loginUrl: "/.auth/login/google",
       aliasPrefix: "go",
+      allowPublicCreate: true,
     });
 
     fireEvent.click(screen.getByRole("button", { name: "Create New" }));
@@ -84,6 +87,7 @@ describe("LandingPage auth mode adaptation", () => {
       identityProviders: ["aad"],
       loginUrl: "/.auth/login/aad",
       aliasPrefix: "go",
+      allowPublicCreate: true,
     });
 
     expect(
@@ -97,6 +101,7 @@ describe("LandingPage auth mode adaptation", () => {
       identityProviders: ["dev"],
       loginUrl: "",
       aliasPrefix: "go",
+      allowPublicCreate: true,
     });
 
     expect(
@@ -110,6 +115,7 @@ describe("LandingPage auth mode adaptation", () => {
       identityProviders: ["google"],
       loginUrl: "/.auth/login/google",
       aliasPrefix: "go",
+      allowPublicCreate: true,
     });
 
     expect(screen.getByText("Popular Links")).toBeInTheDocument();

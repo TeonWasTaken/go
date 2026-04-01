@@ -42,6 +42,20 @@ export function createCreateLinkHandler(strategy: AuthStrategy) {
         return { status: 401, body: "Unauthorized" };
       }
 
+      // --- Admin-only create restriction ---
+      if (
+        process.env.RESTRICT_CREATE_TO_ADMINS === "true" &&
+        !identity.roles.includes("Admin")
+      ) {
+        return {
+          status: 403,
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            error: "Only administrators can create new links",
+          }),
+        };
+      }
+
       // --- Parse request body ---
       let body: CreateAliasRequest;
       try {

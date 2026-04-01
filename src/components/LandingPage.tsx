@@ -10,6 +10,7 @@ export function LandingPage() {
   const authConfig = useAuthConfig();
 
   const isPublicMode = authConfig?.mode === "public";
+  const canCreate = authConfig?.allowPublicCreate !== false;
 
   const handleCreateClick = () => {
     if (isPublicMode && authConfig?.loginUrl) {
@@ -26,12 +27,14 @@ export function LandingPage() {
 
   return (
     <section className="landing-page">
-      <button
-        className="btn btn--primary landing-page__cta"
-        onClick={handleCreateClick}
-      >
-        Create New
-      </button>
+      {canCreate && (
+        <button
+          className="btn btn--primary landing-page__cta"
+          onClick={handleCreateClick}
+        >
+          Create New
+        </button>
+      )}
 
       {isPublicMode && (
         <p className="landing-page__sign-in-prompt">

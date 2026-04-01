@@ -26,6 +26,9 @@ beforeAll(() => {
 vi.mock("./services/api", () => ({
   getAuthConfig: vi.fn(),
   getLinks: vi.fn().mockResolvedValue([]),
+  fetchCurrentUser: vi
+    .fn()
+    .mockResolvedValue({ email: "dev@localhost", roles: ["User"] }),
 }));
 
 import { getAuthConfig } from "./services/api";
@@ -37,6 +40,7 @@ describe("AuthConfigContext", () => {
       identityProviders: ["aad"],
       loginUrl: "/.auth/login/aad",
       aliasPrefix: "go",
+      allowPublicCreate: true,
     };
 
     let captured: ReturnType<typeof useAuthConfig> = null;
@@ -76,6 +80,7 @@ describe("AuthConfigContext", () => {
       identityProviders: ["google"],
       loginUrl: "/.auth/login/google",
       aliasPrefix: "go",
+      allowPublicCreate: true,
     };
     vi.mocked(getAuthConfig).mockResolvedValue(mockConfig);
 

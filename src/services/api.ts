@@ -125,6 +125,8 @@ export interface AuthConfigResponse {
   identityProviders: string[];
   loginUrl: string;
   aliasPrefix: string;
+  allowPublicCreate: boolean;
+  devUser?: { email: string; roles: string[] };
 }
 
 export async function getAuthConfig(): Promise<AuthConfigResponse> {
@@ -138,4 +140,25 @@ export async function scrapeMetadata(
   if (!res.ok) return { title: "", iconUrl: "" };
   const data = await res.json();
   return { title: data.title ?? "", iconUrl: data.iconUrl ?? "" };
+}
+
+export interface UserIdentity {
+  email: string;
+  roles: string[];
+}
+
+export async function fetchCurrentUser(): Promise<UserIdentity | null> {
+  try {
+    const res = await fetch("/.auth/me");
+    if (!res.ok) return null;
+    const data = await res.json();
+    const principal = data?.clientPrincipal;
+    if (!principal?.userDetails) return null;
+    return {
+      email: principal.userDetails,
+      roles: Array.isArray(principal.userRoles) ? principal.userRoles : [],
+    };
+  } catch {
+    return null;
+  }
 }

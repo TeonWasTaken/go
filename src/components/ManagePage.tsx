@@ -38,6 +38,7 @@ export function ManagePage() {
   const aliasPrefix = useAliasPrefix();
 
   const isPublicMode = authConfig?.mode === "public";
+  const canCreate = authConfig?.allowPublicCreate !== false;
 
   const fetchLinks = useCallback(async () => {
     setLoading(true);
@@ -125,12 +126,14 @@ export function ManagePage() {
   return (
     <section className="alias-list-page">
       <div className="alias-list-page__toolbar">
-        <button
-          className="btn btn--primary"
-          onClick={() => setShowCreate(true)}
-        >
-          Create New
-        </button>
+        {canCreate && (
+          <button
+            className="btn btn--primary"
+            onClick={() => setShowCreate(true)}
+          >
+            Create New
+          </button>
+        )}
       </div>
 
       <div

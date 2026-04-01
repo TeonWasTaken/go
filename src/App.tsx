@@ -23,12 +23,23 @@ import { ManagePage } from "./components/ManagePage";
 import { SearchBar } from "./components/SearchBar";
 import { useTheme } from "./components/ThemeProvider";
 import { ThemeToggle } from "./components/ThemeToggle";
-import { type AuthConfigResponse, getAuthConfig } from "./services/api";
+import { UserBadge } from "./components/UserBadge";
+import {
+  type AuthConfigResponse,
+  type UserIdentity,
+  fetchCurrentUser,
+  getAuthConfig,
+} from "./services/api";
 
 export const AuthConfigContext = createContext<AuthConfigResponse | null>(null);
+export const UserContext = createContext<UserIdentity | null>(null);
 
 export function useAuthConfig(): AuthConfigResponse | null {
   return useContext(AuthConfigContext);
+}
+
+export function useUser(): UserIdentity | null {
+  return useContext(UserContext);
 }
 
 export function useAliasPrefix(): string {
@@ -57,19 +68,31 @@ function App() {
   const [searchParams] = useSearchParams();
   const { resolved: theme } = useTheme();
   const [authConfig, setAuthConfig] = useState<AuthConfigResponse | null>(null);
+  const [user, setUser] = useState<UserIdentity | null>(null);
 
   useEffect(() => {
     getAuthConfig()
-      .then(setAuthConfig)
+      .then((config) => {
+        setAuthConfig(config);
+        // In dev mode, use the devUser from auth-config instead of /.auth/me
+        if (config.devUser) {
+          setUser(config.devUser);
+        }
+      })
       .catch(() => {
-        // In dev mode, fall back to a dev config so the app works without the API
         setAuthConfig({
           mode: "dev",
           identityProviders: ["dev"],
           loginUrl: "",
           aliasPrefix: "go",
+          allowPublicCreate: true,
         });
+        setUser({ email: "dev@localhost", roles: ["User"] });
       });
+
+    fetchCurrentUser().then((u) => {
+      if (u) setUser(u);
+    });
   }, []);
 
   const isManagePage = location.pathname === "/manage";
@@ -111,39 +134,42 @@ function App() {
 
   return (
     <AuthConfigContext.Provider value={authConfig}>
-      {isAppRoute && (
-        <header className="app-header container">
-          <NavLink to="/" className="app-header__title">
-            <img
-              src={theme === "dark" ? GoLogoDark : GoLogoLight}
-              alt="Go"
-              className="app-header__logo"
-            />
-          </NavLink>
-          <div className="app-header__search">
-            <SearchBar
-              key={isManagePage ? "manage" : "other"}
-              onSearch={handleHeaderSearch}
-              onSubmit={handleHeaderSubmit}
-              initialValue={headerSearchValue}
-              placeholder="Search aliases…"
-            />
-          </div>
-          <NavLink to="/manage" className="app-header__nav-link">
-            Manage My Links
-          </NavLink>
-          <ThemeToggle />
-        </header>
-      )}
-      <main className="container main-content">
-        <Routes>
-          <Route path="/" element={<LandingPage />} />
-          <Route path="/manage" element={<ManagePage />} />
-          <Route path="/interstitial" element={<InterstitialPage />} />
-          <Route path="/kitchen-sink" element={<KitchenSinkPage />} />
-          <Route path="/*" element={<AliasRedirect />} />
-        </Routes>
-      </main>
+      <UserContext.Provider value={user}>
+        {isAppRoute && (
+          <header className="app-header container">
+            <NavLink to="/" className="app-header__title">
+              <img
+                src={theme === "dark" ? GoLogoDark : GoLogoLight}
+                alt="Go"
+                className="app-header__logo"
+              />
+            </NavLink>
+            <div className="app-header__search">
+              <SearchBar
+                key={isManagePage ? "manage" : "other"}
+                onSearch={handleHeaderSearch}
+                onSubmit={handleHeaderSubmit}
+                initialValue={headerSearchValue}
+                placeholder="Search aliases…"
+              />
+            </div>
+            <NavLink to="/manage" className="app-header__nav-link">
+              Manage My Links
+            </NavLink>
+            <UserBadge />
+            <ThemeToggle />
+          </header>
+        )}
+        <main className="container main-content">
+          <Routes>
+            <Route path="/" element={<LandingPage />} />
+            <Route path="/manage" element={<ManagePage />} />
+            <Route path="/interstitial" element={<InterstitialPage />} />
+            <Route path="/kitchen-sink" element={<KitchenSinkPage />} />
+            <Route path="/*" element={<AliasRedirect />} />
+          </Routes>
+        </main>
+      </UserContext.Provider>
     </AuthConfigContext.Provider>
   );
 }

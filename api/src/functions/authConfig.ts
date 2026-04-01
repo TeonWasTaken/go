@@ -27,16 +27,29 @@ export function createAuthConfigHandler(strategy: AuthStrategy) {
     const loginUrl = `/.auth/login/${primaryProvider}`;
 
     const aliasPrefix = process.env.ALIAS_PREFIX || "go";
+    const allowPublicCreate = process.env.RESTRICT_CREATE_TO_ADMINS !== "true";
+
+    const response: Record<string, unknown> = {
+      mode: strategy.mode,
+      identityProviders: strategy.identityProviders,
+      loginUrl,
+      aliasPrefix,
+      allowPublicCreate,
+    };
+
+    // In dev mode, include the mock user identity so the frontend
+    // can display it without needing the /.auth/me SWA endpoint.
+    if (strategy.mode === "dev") {
+      const identity = strategy.extractIdentity({});
+      if (identity) {
+        response.devUser = { email: identity.email, roles: identity.roles };
+      }
+    }
 
     return {
       status: 200,
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        mode: strategy.mode,
-        identityProviders: strategy.identityProviders,
-        loginUrl,
-        aliasPrefix,
-      }),
+      body: JSON.stringify(response),
     };
   };
 }

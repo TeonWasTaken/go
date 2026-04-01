@@ -59,6 +59,8 @@ describe("GET /api/auth-config", () => {
       identityProviders: ["dev"],
       loginUrl: "/.auth/login/dev",
       aliasPrefix: "go",
+      allowPublicCreate: true,
+      devUser: { email: "dev@localhost", roles: ["User"] },
     });
   });
 
@@ -78,6 +80,7 @@ describe("GET /api/auth-config", () => {
       identityProviders: ["aad"],
       loginUrl: "/.auth/login/aad",
       aliasPrefix: "go",
+      allowPublicCreate: true,
     });
   });
 
@@ -97,6 +100,7 @@ describe("GET /api/auth-config", () => {
       identityProviders: ["google", "github"],
       loginUrl: "/.auth/login/google",
       aliasPrefix: "go",
+      allowPublicCreate: true,
     });
   });
 
