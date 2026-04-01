@@ -123,6 +123,8 @@ export function ExpiryPolicySelector({
   );
   const durationTransform = `translateX(${durationIndex * 100}%)`;
 
+  const isFixed = value.expiry_policy_type === "fixed";
+
   return (
     <fieldset className="expiry-selector">
       <legend className="expiry-selector__legend">Expiry Policy</legend>
@@ -155,36 +157,48 @@ export function ExpiryPolicySelector({
         />
       </div>
 
-      {value.expiry_policy_type === "fixed" && (
-        <div className="expiry-selector__fixed-options">
-          <div
-            className="expiry-pill expiry-pill--4 glass--subtle"
-            role="radiogroup"
-            aria-label="Duration"
-            onKeyDown={handleDurationKeyDown}
-          >
-            {DURATION_OPTIONS.map((opt, i) => (
-              <button
-                key={opt.value}
-                ref={(el) => {
-                  durationRefs.current[i] = el;
-                }}
-                type="button"
-                role="radio"
-                aria-checked={activeDuration === opt.value}
-                tabIndex={activeDuration === opt.value ? 0 : -1}
-                className={`expiry-pill__option${activeDuration === opt.value ? " expiry-pill__option--active" : ""}`}
-                onClick={() => handleDurationSelect(opt.value)}
-              >
-                {opt.label}
-              </button>
-            ))}
-            <div
-              className="expiry-pill__slider"
-              style={{ transform: durationTransform }}
-            />
-          </div>
+      <div className="expiry-selector__info-reserve">
+        {value.expiry_policy_type === "inactivity" && (
+          <p className="expiry-selector__info">
+            This alias will expire after 12 months of no access.
+          </p>
+        )}
+      </div>
 
+      <div
+        className="expiry-selector__fixed-options"
+        style={{ visibility: isFixed ? "visible" : "hidden" }}
+        aria-hidden={!isFixed}
+      >
+        <div
+          className="expiry-pill expiry-pill--4 glass--subtle"
+          role="radiogroup"
+          aria-label="Duration"
+          onKeyDown={handleDurationKeyDown}
+        >
+          {DURATION_OPTIONS.map((opt, i) => (
+            <button
+              key={opt.value}
+              ref={(el) => {
+                durationRefs.current[i] = el;
+              }}
+              type="button"
+              role="radio"
+              aria-checked={activeDuration === opt.value}
+              tabIndex={isFixed && activeDuration === opt.value ? 0 : -1}
+              className={`expiry-pill__option${activeDuration === opt.value ? " expiry-pill__option--active" : ""}`}
+              onClick={() => handleDurationSelect(opt.value)}
+            >
+              {opt.label}
+            </button>
+          ))}
+          <div
+            className="expiry-pill__slider"
+            style={{ transform: durationTransform }}
+          />
+        </div>
+
+        <div className="expiry-selector__date-reserve">
           {useCustomDate && (
             <input
               type="date"
@@ -207,13 +221,7 @@ export function ExpiryPolicySelector({
             />
           )}
         </div>
-      )}
-
-      {value.expiry_policy_type === "inactivity" && (
-        <p className="expiry-selector__info">
-          This alias will expire after 12 months of no access.
-        </p>
-      )}
+      </div>
     </fieldset>
   );
 }

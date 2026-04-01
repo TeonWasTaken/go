@@ -22,38 +22,43 @@ export function ScopeToggle({ isPrivate, onChange }: ScopeToggleProps) {
   };
 
   return (
-    <div
-      className="scope-toggle glass--subtle"
-      role="radiogroup"
-      aria-label="Link scope"
-      onKeyDown={handleKeyDown}
-    >
-      <button
-        ref={privateRef}
-        type="button"
-        role="radio"
-        aria-checked={isPrivate}
-        tabIndex={isPrivate ? 0 : -1}
-        className={`scope-toggle__option ${isPrivate ? "scope-toggle__option--active" : ""}`}
-        onClick={() => onChange(true)}
-      >
-        🔒 Private (Just You)
-      </button>
-      <button
-        ref={globalRef}
-        type="button"
-        role="radio"
-        aria-checked={!isPrivate}
-        tabIndex={!isPrivate ? 0 : -1}
-        className={`scope-toggle__option ${!isPrivate ? "scope-toggle__option--active" : ""}`}
-        onClick={() => onChange(false)}
-      >
-        🌐 Global (Company)
-      </button>
+    <div className="scope-toggle-wrapper">
+      <span className="form-field__label">Target Audience</span>
       <div
-        className="scope-toggle__slider"
-        style={{ transform: isPrivate ? "translateX(0)" : "translateX(100%)" }}
-      />
+        className="scope-toggle glass--subtle"
+        role="radiogroup"
+        aria-label="Link scope"
+        onKeyDown={handleKeyDown}
+      >
+        <button
+          ref={privateRef}
+          type="button"
+          role="radio"
+          aria-checked={isPrivate}
+          tabIndex={isPrivate ? 0 : -1}
+          className={`scope-toggle__option ${isPrivate ? "scope-toggle__option--active" : ""}`}
+          onClick={() => onChange(true)}
+        >
+          🔒 Private (Just You)
+        </button>
+        <button
+          ref={globalRef}
+          type="button"
+          role="radio"
+          aria-checked={!isPrivate}
+          tabIndex={!isPrivate ? 0 : -1}
+          className={`scope-toggle__option ${!isPrivate ? "scope-toggle__option--active" : ""}`}
+          onClick={() => onChange(false)}
+        >
+          🌐 Global (All Staff)
+        </button>
+        <div
+          className="scope-toggle__slider"
+          style={{
+            transform: isPrivate ? "translateX(0)" : "translateX(100%)",
+          }}
+        />
+      </div>
     </div>
   );
 }

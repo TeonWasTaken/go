@@ -94,7 +94,7 @@ function App() {
           <ThemeToggle />
         </header>
       )}
-      <main className="container">
+      <main className="container main-content">
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/manage" element={<ManagePage />} />
