@@ -44,7 +44,7 @@
   --color-bg-gradient: none;
   --color-bg-pattern: radial-gradient(
     circle,
-    rgba(0, 0, 0, 0.04) 1px,
+    rgba(0, 0, 0, 0.08) 1px,
     transparent 1px
   );
   --color-bg-pattern-size: 20px 20px;
@@ -331,7 +331,7 @@ body {
 .app-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 0.75rem;
   padding: 0.75rem 1rem;
   margin-bottom: 1rem;
 }
@@ -341,6 +341,55 @@ body {
   font-weight: 800;
   letter-spacing: -0.02em;
   color: var(--color-text);
+  text-decoration: none;
+  flex-shrink: 0;
+}
+
+.app-header__search {
+  flex: 1;
+  min-width: 0;
+}
+
+.app-header__search .search-bar {
+  margin-bottom: 0;
+}
+
+.app-header__nav-link {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  text-decoration: none;
+  white-space: nowrap;
+  padding: 0.375rem 0.75rem;
+  border-radius: calc(var(--radius) - 4px);
+  transition:
+    color var(--transition-speed) ease,
+    background var(--transition-speed) ease;
+}
+
+.app-header__nav-link:hover {
+  color: var(--color-text);
+  background: rgba(255, 255, 255, 0.15);
+}
+
+[data-theme="dark"] .app-header__nav-link:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.app-header__nav-link.active {
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+@media (max-width: 640px) {
+  .app-header {
+    flex-wrap: wrap;
+  }
+
+  .app-header__search {
+    order: 4;
+    flex-basis: 100%;
+  }
 }
 
 /* ── Theme toggle (segmented button) ── */
@@ -824,7 +873,7 @@ body {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.25);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
   display: flex;
@@ -832,6 +881,10 @@ body {
   justify-content: center;
   z-index: 9000;
   padding: 1rem;
+}
+
+[data-theme="dark"] .modal-overlay {
+  background: rgba(0, 0, 0, 0.5);
 }
 
 @keyframes fadeSlideUp {
@@ -862,6 +915,9 @@ body {
 /* ── Popular links ── */
 .popular-links {
   margin-bottom: 1.5rem;
+  max-width: 720px;
+  width: 100%;
+  margin-inline: auto;
 }
 
 .popular-links__heading {
@@ -876,28 +932,45 @@ body {
   list-style: none;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  padding: 0.5rem;
+  border-radius: var(--radius);
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 8px 32px rgba(31, 38, 135, 0.12);
+}
+
+.popular-links__list li + li {
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="dark"] .popular-links__list li + li {
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .popular-links__item {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.625rem 0.875rem;
+  padding: 0.75rem 0.875rem;
   text-decoration: none;
   color: inherit;
+  border-radius: calc(var(--radius) - 4px);
   transition:
-    box-shadow var(--transition-speed) ease,
-    filter var(--transition-speed) ease;
+    background var(--transition-speed) ease,
+    transform var(--transition-speed) ease,
+    box-shadow var(--transition-speed) ease;
 }
 
 .popular-links__item:hover {
-  box-shadow: 0 12px 40px rgba(31, 38, 135, 0.22);
-  filter: brightness(1.05);
+  background: rgba(255, 255, 255, 0.12);
+  transform: translateX(4px);
+  box-shadow: inset 3px 0 0 var(--color-primary);
 }
 
 [data-theme="dark"] .popular-links__item:hover {
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .popular-links__info {
@@ -919,6 +992,16 @@ body {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.popular-links__url {
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+  opacity: 0.7;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 400px;
 }
 
 .popular-links__empty {
@@ -1206,6 +1289,19 @@ body {
   margin-top: 0.25rem;
 }
 
+/* ── Redirect placeholder ── */
+.redirect-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 80vh;
+}
+
+.redirect-placeholder__text {
+  font-size: 1.125rem;
+  color: var(--color-text-muted);
+}
+
 /* ── Interstitial conflict resolution page ── */
 .interstitial {
   display: flex;
@@ -1383,4 +1479,18 @@ body {
 .kitchen-sink__swatch-label {
   font-size: 0.625rem;
   color: var(--color-text-muted);
+}
+
+/* ── Landing page ── */
+.landing-page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2rem;
+  padding: 2rem 0;
+}
+
+.landing-page__cta {
+  font-size: 1.125rem;
+  padding: 0.875rem 2.5rem;
 }

@@ -2,14 +2,18 @@ import { useEffect, useRef, useState } from "react";
 
 interface SearchBarProps {
   onSearch: (term: string) => void;
+  onSubmit?: (term: string) => void;
+  initialValue?: string;
   placeholder?: string;
 }
 
 export function SearchBar({
   onSearch,
+  onSubmit,
+  initialValue = "",
   placeholder = "Search aliases…",
 }: SearchBarProps) {
-  const [value, setValue] = useState("");
+  const [value, setValue] = useState(initialValue);
   const inputRef = useRef<HTMLInputElement>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout>>();
 
@@ -37,8 +41,13 @@ export function SearchBar({
     return () => document.removeEventListener("keydown", handleKey);
   }, []);
 
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSubmit?.(value);
+  };
+
   return (
-    <div className="search-bar glass">
+    <form className="search-bar glass" onSubmit={handleSubmit}>
       <span className="search-bar__icon" aria-hidden="true">
         🔍
       </span>
@@ -54,6 +63,6 @@ export function SearchBar({
       <kbd className="search-bar__shortcut" aria-hidden="true">
         /
       </kbd>
-    </div>
+    </form>
   );
 }

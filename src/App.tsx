@@ -1,74 +1,103 @@
-import { useCallback, useEffect, useState } from "react";
-import { Route, Routes, useParams } from "react-router-dom";
-import { AliasListPage } from "./components/AliasListPage";
-import { CreateEditModal } from "./components/CreateEditModal";
+import { useCallback, useEffect } from "react";
+import {
+  NavLink,
+  Route,
+  Routes,
+  useLocation,
+  useNavigate,
+  useParams,
+  useSearchParams,
+} from "react-router-dom";
 import { InterstitialPage } from "./components/InterstitialPage";
 import { KitchenSinkPage } from "./components/KitchenSinkPage";
-import { PopularLinks } from "./components/PopularLinks";
+import { LandingPage } from "./components/LandingPage";
+import { ManagePage } from "./components/ManagePage";
+import { SearchBar } from "./components/SearchBar";
 import { ThemeToggle } from "./components/ThemeToggle";
-import type { AliasRecord } from "./services/api";
-
-function Dashboard() {
-  const [editTarget, setEditTarget] = useState<AliasRecord | null>(null);
-  const [showCreate, setShowCreate] = useState(false);
-  const [refreshKey, setRefreshKey] = useState(0);
-  const [records, setRecords] = useState<AliasRecord[]>([]);
-
-  const refresh = useCallback(() => setRefreshKey((k) => k + 1), []);
-
-  const handleSaved = () => {
-    setEditTarget(null);
-    setShowCreate(false);
-    refresh();
-  };
-
-  return (
-    <>
-      <PopularLinks />
-      <AliasListPage
-        onEdit={setEditTarget}
-        onCreate={() => setShowCreate(true)}
-        refreshKey={refreshKey}
-        onRecordsLoaded={setRecords}
-      />
-      {(showCreate || editTarget) && (
-        <CreateEditModal
-          record={editTarget}
-          onClose={() => {
-            setEditTarget(null);
-            setShowCreate(false);
-          }}
-          onSaved={handleSaved}
-          existingAliases={records}
-        />
-      )}
-    </>
-  );
-}
 
 /** Catch-all: forward unknown paths to the redirect API (mirrors SWA config in dev). */
 function AliasRedirect() {
   const { "*": alias } = useParams();
   useEffect(() => {
     if (alias) {
-      // The redirect Azure Function listens at /{alias} (no /api prefix).
-      // In dev, Vite proxies /go-redirect/* to the Functions backend.
       window.location.href = `/go-redirect/${encodeURIComponent(alias)}`;
     }
   }, [alias]);
-  return null;
+  return (
+    <div className="redirect-placeholder">
+      <p className="redirect-placeholder__text">Redirecting…</p>
+    </div>
+  );
 }
 
 function App() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
+
+  const isManagePage = location.pathname === "/manage";
+  const isAppRoute = [
+    "/",
+    "/manage",
+    "/interstitial",
+    "/kitchen-sink",
+  ].includes(location.pathname);
+  const headerSearchValue = isManagePage ? searchParams.get("q") || "" : "";
+
+  const handleHeaderSearch = useCallback(
+    (term: string) => {
+      // Navigate to manage page with search term on any page (debounced as-you-type)
+      navigate(
+        term
+          ? `/manage?q=${encodeURIComponent(term)}`
+          : isManagePage
+            ? "/manage"
+            : "/",
+        {
+          replace: true,
+        },
+      );
+    },
+    [isManagePage, navigate],
+  );
+
+  const handleHeaderSubmit = useCallback(
+    (term: string) => {
+      if (!isManagePage) {
+        // On landing page (or any non-manage page), navigate to manage with query
+        navigate(term ? `/manage?q=${encodeURIComponent(term)}` : "/manage");
+      }
+      // On manage page, the debounced onSearch already handles filtering
+    },
+    [isManagePage, navigate],
+  );
+
   return (
     <>
-      <header className="app-header container">
-        <span className="app-header__title">Go</span>
-        <ThemeToggle />
-      </header>
+      {isAppRoute && (
+        <header className="app-header container">
+          <NavLink to="/" className="app-header__title">
+            Go
+          </NavLink>
+          <div className="app-header__search">
+            <SearchBar
+              key={isManagePage ? "manage" : "other"}
+              onSearch={handleHeaderSearch}
+              onSubmit={handleHeaderSubmit}
+              initialValue={headerSearchValue}
+              placeholder="Search aliases…"
+            />
+          </div>
+          <NavLink to="/manage" className="app-header__nav-link">
+            Manage My Links
+          </NavLink>
+          <ThemeToggle />
+        </header>
+      )}
       <main className="container">
         <Routes>
-          <Route path="/" element={<Dashboard />} />
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/manage" element={<ManagePage />} />
           <Route path="/interstitial" element={<InterstitialPage />} />
           <Route path="/kitchen-sink" element={<KitchenSinkPage />} />
           <Route path="/*" element={<AliasRedirect />} />

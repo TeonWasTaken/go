@@ -22,13 +22,18 @@ function HeatIndicator({ score, max }: { score: number; max: number }) {
   );
 }
 
-export function PopularLinks() {
+interface PopularLinksProps {
+  refreshKey?: number;
+}
+
+export function PopularLinks({ refreshKey = 0 }: PopularLinksProps) {
   const [links, setLinks] = useState<AliasRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const { showToast } = useToast();
 
   useEffect(() => {
     let cancelled = false;
+    setLoading(true);
     (async () => {
       try {
         const data = await getLinks({ scope: "popular" });
@@ -48,7 +53,7 @@ export function PopularLinks() {
     return () => {
       cancelled = true;
     };
-  }, [showToast]);
+  }, [showToast, refreshKey]);
 
   const maxHeat = links.reduce((m, l) => Math.max(m, l.heat_score), 0);
 
@@ -67,13 +72,16 @@ export function PopularLinks() {
                 href={link.destination_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="popular-links__item glass"
+                className="popular-links__item"
               >
                 <div className="popular-links__info">
                   <span className="popular-links__alias">go/{link.alias}</span>
                   {link.title && (
                     <span className="popular-links__title">{link.title}</span>
                   )}
+                  <span className="popular-links__url">
+                    {link.destination_url}
+                  </span>
                 </div>
                 <HeatIndicator score={link.heat_score} max={maxHeat} />
               </a>

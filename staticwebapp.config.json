@@ -42,6 +42,10 @@
       "rewrite": "/index.html"
     },
     {
+      "route": "/manage",
+      "rewrite": "/index.html"
+    },
+    {
       "route": "/{alias}",
       "rewrite": "/api/redirect/{alias}"
     },
