@@ -28,6 +28,7 @@ export interface AliasRecord {
   expires_at: string | null;
   expiry_status: "active" | "expiring_soon" | "expired" | "no_expiry";
   expired_at: string | null;
+  icon_url: string | null;
 }
 
 export interface CreateAliasRequest {
@@ -38,6 +39,7 @@ export interface CreateAliasRequest {
   expiry_policy_type?: "never" | "fixed" | "inactivity";
   duration_months?: 1 | 3 | 12;
   custom_expires_at?: string;
+  icon_url?: string;
 }
 
 export interface UpdateAliasRequest {
@@ -47,6 +49,7 @@ export interface UpdateAliasRequest {
   expiry_policy_type?: "never" | "fixed" | "inactivity";
   duration_months?: 1 | 3 | 12;
   custom_expires_at?: string;
+  icon_url?: string;
 }
 
 // ---------------------------------------------------------------------------

@@ -178,9 +178,9 @@ describe("createLink handler", () => {
     expect(body.expiry_status).toBe("active");
   });
 
-  it("returns 201 for private alias creation (no conflict check)", async () => {
-    // Even if a global alias exists, private creation should succeed
-    mockGetAlias.mockResolvedValue(makeAlias());
+  it("returns 201 for private alias creation (checks private conflict)", async () => {
+    // No existing private alias — creation should succeed
+    mockGetAlias.mockResolvedValue(undefined);
     const res = await createLinkHandler(
       makeRequest({ is_private: true }),
       makeContext(),
@@ -189,8 +189,11 @@ describe("createLink handler", () => {
     const body = JSON.parse(res.body as string);
     expect(body.is_private).toBe(true);
     expect(body.id).toBe("my-link:alice@example.com");
-    // getAliasByPartition should NOT have been called for conflict check
-    expect(mockGetAlias).not.toHaveBeenCalled();
+    // getAliasByPartition should have been called to check for private conflict
+    expect(mockGetAlias).toHaveBeenCalledWith(
+      "my-link",
+      "my-link:alice@example.com",
+    );
   });
 
   it("computes expiry correctly for never policy", async () => {

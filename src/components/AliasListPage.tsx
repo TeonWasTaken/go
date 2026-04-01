@@ -25,12 +25,14 @@ interface AliasListPageProps {
   onEdit: (record: AliasRecord) => void;
   onCreate: () => void;
   refreshKey: number;
+  onRecordsLoaded?: (records: AliasRecord[]) => void;
 }
 
 export function AliasListPage({
   onEdit,
   onCreate,
   refreshKey,
+  onRecordsLoaded,
 }: AliasListPageProps) {
   const [records, setRecords] = useState<AliasRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -44,6 +46,7 @@ export function AliasListPage({
     try {
       const data = await getLinks(search ? { search } : undefined);
       setRecords(data);
+      onRecordsLoaded?.(data);
     } catch (err) {
       const msg =
         err instanceof ApiError ? err.message : "Failed to load aliases";

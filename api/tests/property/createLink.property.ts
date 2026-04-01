@@ -343,9 +343,8 @@ describe("Property 9: Global alias names are unique (case-insensitive)", () => {
         async (alias, destinationUrl, title, userEmail) => {
           resetMocks(userEmail);
 
-          // Even with a global alias existing, private creation should not conflict
-          // Note: for private aliases, getAliasByPartition should NOT be called
-          // for conflict checking, so we leave the mock returning undefined.
+          // No existing private alias — getAliasByPartition returns undefined
+          mockGetAlias.mockResolvedValue(undefined);
 
           const body: Partial<CreateAliasRequest> = {
             alias,
@@ -362,8 +361,11 @@ describe("Property 9: Global alias names are unique (case-insensitive)", () => {
           expect(record.is_private).toBe(true);
           expect(record.id).toBe(`${alias}:${userEmail}`);
 
-          // getAliasByPartition should NOT have been called (no conflict check for private)
-          expect(mockGetAlias).not.toHaveBeenCalled();
+          // getAliasByPartition should have been called to check for private conflict
+          expect(mockGetAlias).toHaveBeenCalledWith(
+            alias,
+            `${alias}:${userEmail}`,
+          );
         },
       ),
       { numRuns: 50 },

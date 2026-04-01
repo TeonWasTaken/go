@@ -43,9 +43,35 @@ export function AliasCard({
   if (isExpiringSoon) cardClass += " alias-card--expiring";
 
   return (
-    <article className={cardClass} aria-label={`Alias ${record.alias}`}>
+    <article
+      className={cardClass}
+      aria-label={`Alias ${record.alias}`}
+      onClick={() => window.open(record.destination_url, "_blank")}
+      style={{ cursor: "pointer" }}
+    >
       <div className="alias-card__header">
         <div className="alias-card__title-row">
+          {record.icon_url ? (
+            <img
+              className="alias-card__icon"
+              src={record.icon_url}
+              alt=""
+              onError={(e) => {
+                (e.target as HTMLImageElement).style.display = "none";
+                // Show placeholder sibling
+                const placeholder = (e.target as HTMLImageElement)
+                  .nextElementSibling;
+                if (placeholder)
+                  (placeholder as HTMLElement).style.display = "flex";
+              }}
+            />
+          ) : null}
+          <span
+            className="alias-card__icon-placeholder"
+            style={record.icon_url ? { display: "none" } : undefined}
+          >
+            🔗
+          </span>
           <span className="alias-card__alias">go/{record.alias}</span>
           {record.is_private && (
             <span className="alias-card__badge alias-card__badge--personal">
@@ -57,6 +83,16 @@ export function AliasCard({
           >
             {statusLabel(record.expiry_status)}
           </span>
+          <button
+            className="alias-card__btn alias-card__btn--icon"
+            onClick={(e) => {
+              e.stopPropagation();
+              onEdit(record);
+            }}
+            aria-label={`Edit ${record.alias}`}
+          >
+            ⚙️
+          </button>
         </div>
         {record.title && (
           <span className="alias-card__title">{record.title}</span>
@@ -83,14 +119,7 @@ export function AliasCard({
         )}
       </div>
 
-      <div className="alias-card__actions">
-        <button
-          className="alias-card__btn"
-          onClick={() => onEdit(record)}
-          aria-label={`Edit ${record.alias}`}
-        >
-          Edit
-        </button>
+      <div className="alias-card__actions" onClick={(e) => e.stopPropagation()}>
         {(isExpired || isExpiringSoon) && (
           <button
             className="alias-card__btn alias-card__btn--renew"

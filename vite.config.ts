@@ -10,6 +10,11 @@ export default defineConfig({
         target: "http://localhost:7071",
         changeOrigin: true,
       },
+      "/go-redirect": {
+        target: "http://localhost:7071",
+        changeOrigin: true,
+        rewrite: (path: string) => path.replace(/^\/go-redirect/, ""),
+      },
     },
   },
   test: {

@@ -59,9 +59,24 @@ export async function createLinkHandler(
       return { status: 400, body: validation.error };
     }
 
-    // --- Check for global alias conflict (case-insensitive) ---
+    // --- Check for alias conflict ---
     const isPrivate = body.is_private ?? false;
-    if (!isPrivate) {
+    if (isPrivate) {
+      const privateId = `${body.alias}:${identity.email}`;
+      const existing = await getAliasByPartition(
+        body.alias.toLowerCase(),
+        privateId,
+      );
+      if (existing) {
+        return {
+          status: 409,
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            error: `You already have a private alias named "${body.alias}"`,
+          }),
+        };
+      }
+    } else {
       const existing = await getAliasByPartition(
         body.alias.toLowerCase(),
         body.alias.toLowerCase(),
@@ -69,7 +84,10 @@ export async function createLinkHandler(
       if (existing) {
         return {
           status: 409,
-          body: `A global alias with the name "${body.alias}" already exists`,
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            error: `A global alias named "${body.alias}" already exists`,
+          }),
         };
       }
     }
@@ -103,6 +121,7 @@ export async function createLinkHandler(
       expires_at: expiry.expires_at,
       expiry_status: expiry.expiry_status,
       expired_at: null,
+      icon_url: body.icon_url ?? null,
     };
 
     // --- Create in Cosmos DB ---

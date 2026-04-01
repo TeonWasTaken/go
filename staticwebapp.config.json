@@ -34,6 +34,18 @@
       ]
     },
     {
+      "route": "/interstitial",
+      "rewrite": "/index.html"
+    },
+    {
+      "route": "/kitchen-sink",
+      "rewrite": "/index.html"
+    },
+    {
+      "route": "/{alias}",
+      "rewrite": "/api/redirect/{alias}"
+    },
+    {
       "route": "/*",
       "allowedRoles": [
         "authenticated"

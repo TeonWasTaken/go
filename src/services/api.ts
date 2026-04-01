@@ -21,6 +21,7 @@ export interface AliasRecord {
   expires_at: string | null;
   expiry_status: "active" | "expiring_soon" | "expired" | "no_expiry";
   expired_at: string | null;
+  icon_url: string | null;
 }
 
 export interface CreateAliasPayload {
@@ -31,6 +32,7 @@ export interface CreateAliasPayload {
   expiry_policy_type?: "never" | "fixed" | "inactivity";
   duration_months?: 1 | 3 | 12;
   custom_expires_at?: string;
+  icon_url?: string;
 }
 
 export interface UpdateAliasPayload {
@@ -40,6 +42,7 @@ export interface UpdateAliasPayload {
   expiry_policy_type?: "never" | "fixed" | "inactivity";
   duration_months?: 1 | 3 | 12;
   custom_expires_at?: string;
+  icon_url?: string;
 }
 
 export class ApiError extends Error {
@@ -115,4 +118,13 @@ export async function renewLink(alias: string): Promise<AliasRecord> {
   return request<AliasRecord>(`/api/links/${encodeURIComponent(alias)}/renew`, {
     method: "PUT",
   });
+}
+
+export async function scrapeMetadata(
+  url: string,
+): Promise<{ title: string; iconUrl: string }> {
+  const res = await fetch(`/api/scrape-title?url=${encodeURIComponent(url)}`);
+  if (!res.ok) return { title: "", iconUrl: "" };
+  const data = await res.json();
+  return { title: data.title ?? "", iconUrl: data.iconUrl ?? "" };
 }

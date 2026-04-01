@@ -102,6 +102,9 @@ export async function updateLinkHandler(
     if (body.is_private !== undefined) {
       record.is_private = body.is_private;
     }
+    if (body.icon_url !== undefined) {
+      record.icon_url = body.icon_url;
+    }
 
     // --- Recalculate expiry if policy fields changed ---
     if (body.expiry_policy_type !== undefined) {

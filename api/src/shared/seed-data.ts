@@ -37,6 +37,7 @@ const SEED: AliasRecord[] = [
     expires_at: null,
     expiry_status: "no_expiry",
     expired_at: null,
+    icon_url: null,
   },
   {
     id: "roadmap",
@@ -56,6 +57,7 @@ const SEED: AliasRecord[] = [
     expires_at: iso(monthsFromNow(9)),
     expiry_status: "active",
     expired_at: null,
+    icon_url: null,
   },
   {
     id: "onboarding",
@@ -75,6 +77,7 @@ const SEED: AliasRecord[] = [
     expires_at: null,
     expiry_status: "no_expiry",
     expired_at: null,
+    icon_url: null,
   },
   {
     id: "sprint-board",
@@ -94,6 +97,7 @@ const SEED: AliasRecord[] = [
     expires_at: iso(daysFromNow(5)),
     expiry_status: "expiring_soon",
     expired_at: null,
+    icon_url: null,
   },
   {
     id: "old-wiki",
@@ -113,6 +117,7 @@ const SEED: AliasRecord[] = [
     expires_at: iso(daysAgo(10)),
     expiry_status: "expired",
     expired_at: iso(daysAgo(10)),
+    icon_url: null,
   },
   {
     id: "my-notes:dev@localhost",
@@ -132,6 +137,7 @@ const SEED: AliasRecord[] = [
     expires_at: iso(monthsFromNow(10)),
     expiry_status: "active",
     expired_at: null,
+    icon_url: null,
   },
   {
     id: "standup:dev@localhost",
@@ -151,6 +157,7 @@ const SEED: AliasRecord[] = [
     expires_at: null,
     expiry_status: "no_expiry",
     expired_at: null,
+    icon_url: null,
   },
   {
     id: "api-docs",
@@ -170,6 +177,7 @@ const SEED: AliasRecord[] = [
     expires_at: null,
     expiry_status: "no_expiry",
     expired_at: null,
+    icon_url: null,
   },
 ];
 

@@ -4,18 +4,21 @@ import { ApiError, getLinks } from "../services/api";
 import { SkeletonLoader } from "./SkeletonLoader";
 import { useToast } from "./ToastProvider";
 
-/** Visual heat indicator: 1–5 bars based on relative heat score. */
+/** Visual heat indicator: horizontal progress bar based on relative heat score. */
 function HeatIndicator({ score, max }: { score: number; max: number }) {
+  const percentage = max > 0 ? Math.round((score / max) * 100) : 0;
   const level = max > 0 ? Math.ceil((score / max) * 5) : 0;
   return (
-    <span className="heat-indicator" aria-label={`Heat level ${level} of 5`}>
-      {Array.from({ length: 5 }, (_, i) => (
-        <span
-          key={i}
-          className={`heat-indicator__bar${i < level ? " heat-indicator__bar--active" : ""}`}
-        />
-      ))}
-    </span>
+    <div
+      className="heat-bar"
+      role="meter"
+      aria-valuenow={percentage}
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-label={`Popularity: ${level} of 5`}
+    >
+      <div className="heat-bar__fill" style={{ width: `${percentage}%` }} />
+    </div>
   );
 }
 
@@ -59,14 +62,21 @@ export function PopularLinks() {
       ) : (
         <ol className="popular-links__list">
           {links.map((link) => (
-            <li key={link.id} className="popular-links__item glass">
-              <div className="popular-links__info">
-                <span className="popular-links__alias">go/{link.alias}</span>
-                {link.title && (
-                  <span className="popular-links__title">{link.title}</span>
-                )}
-              </div>
-              <HeatIndicator score={link.heat_score} max={maxHeat} />
+            <li key={link.id} role="listitem">
+              <a
+                href={link.destination_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="popular-links__item glass"
+              >
+                <div className="popular-links__info">
+                  <span className="popular-links__alias">go/{link.alias}</span>
+                  {link.title && (
+                    <span className="popular-links__title">{link.title}</span>
+                  )}
+                </div>
+                <HeatIndicator score={link.heat_score} max={maxHeat} />
+              </a>
             </li>
           ))}
         </ol>
