@@ -349,6 +349,12 @@ body {
   flex-shrink: 0;
 }
 
+.app-header__logo {
+  height: 2rem;
+  width: auto;
+  display: block;
+}
+
 .app-header__search {
   flex: 1;
   min-width: 0;

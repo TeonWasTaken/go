@@ -8,11 +8,14 @@ import {
   useParams,
   useSearchParams,
 } from "react-router-dom";
+import GoLogoDark from "./assets/GoLogo_dark.svg";
+import GoLogoLight from "./assets/GoLogo_light.svg";
 import { InterstitialPage } from "./components/InterstitialPage";
 import { KitchenSinkPage } from "./components/KitchenSinkPage";
 import { LandingPage } from "./components/LandingPage";
 import { ManagePage } from "./components/ManagePage";
 import { SearchBar } from "./components/SearchBar";
+import { useTheme } from "./components/ThemeProvider";
 import { ThemeToggle } from "./components/ThemeToggle";
 
 /** Catch-all: forward unknown paths to the redirect API (mirrors SWA config in dev). */
@@ -34,6 +37,7 @@ function App() {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
+  const { resolved: theme } = useTheme();
 
   const isManagePage = location.pathname === "/manage";
   const isAppRoute = [
@@ -77,7 +81,11 @@ function App() {
       {isAppRoute && (
         <header className="app-header container">
           <NavLink to="/" className="app-header__title">
-            Go
+            <img
+              src={theme === "dark" ? GoLogoDark : GoLogoLight}
+              alt="Go"
+              className="app-header__logo"
+            />
           </NavLink>
           <div className="app-header__search">
             <SearchBar
