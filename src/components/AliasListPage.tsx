@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useAliasPrefix } from "../App";
 import type { AliasRecord } from "../services/api";
 import { ApiError, deleteLink, getLinks, renewLink } from "../services/api";
 import { AliasCard } from "./AliasCard";
@@ -40,6 +41,7 @@ export function AliasListPage({
   const [filter, setFilter] = useState<ExpiryFilter>("all");
   const [deleteTarget, setDeleteTarget] = useState<AliasRecord | null>(null);
   const { showToast } = useToast();
+  const aliasPrefix = useAliasPrefix();
 
   const fetchLinks = useCallback(async () => {
     setLoading(true);
@@ -69,7 +71,7 @@ export function AliasListPage({
     try {
       await deleteLink(deleteTarget.alias);
       setRecords((prev) => prev.filter((r) => r.id !== deleteTarget.id));
-      showToast(`Deleted go/${deleteTarget.alias}`, "success");
+      showToast(`Deleted ${aliasPrefix}/${deleteTarget.alias}`, "success");
     } catch (err) {
       const msg =
         err instanceof ApiError ? err.message : "Failed to delete alias";
@@ -83,7 +85,7 @@ export function AliasListPage({
     try {
       const updated = await renewLink(record.alias);
       setRecords((prev) => prev.map((r) => (r.id === record.id ? updated : r)));
-      showToast(`Renewed go/${record.alias}`, "success");
+      showToast(`Renewed ${aliasPrefix}/${record.alias}`, "success");
     } catch (err) {
       const msg =
         err instanceof ApiError ? err.message : "Failed to renew alias";
@@ -156,8 +158,11 @@ export function AliasListPage({
         >
           <div className="modal glass">
             <p>
-              Delete <strong>go/{deleteTarget.alias}</strong>? This cannot be
-              undone.
+              Delete{" "}
+              <strong>
+                {aliasPrefix}/{deleteTarget.alias}
+              </strong>
+              ? This cannot be undone.
             </p>
             <div className="modal__actions">
               <button className="btn" onClick={() => setDeleteTarget(null)}>

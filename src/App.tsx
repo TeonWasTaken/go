@@ -31,6 +31,11 @@ export function useAuthConfig(): AuthConfigResponse | null {
   return useContext(AuthConfigContext);
 }
 
+export function useAliasPrefix(): string {
+  const config = useContext(AuthConfigContext);
+  return config?.aliasPrefix ?? "go";
+}
+
 /** Catch-all: forward unknown paths to the redirect API (mirrors SWA config in dev). */
 function AliasRedirect() {
   const { "*": alias } = useParams();
@@ -62,6 +67,7 @@ function App() {
           mode: "dev",
           identityProviders: ["dev"],
           loginUrl: "",
+          aliasPrefix: "go",
         });
       });
   }, []);

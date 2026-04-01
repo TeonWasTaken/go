@@ -58,6 +58,7 @@ describe("GET /api/auth-config", () => {
       mode: "dev",
       identityProviders: ["dev"],
       loginUrl: "/.auth/login/dev",
+      aliasPrefix: "go",
     });
   });
 
@@ -76,6 +77,7 @@ describe("GET /api/auth-config", () => {
       mode: "corporate",
       identityProviders: ["aad"],
       loginUrl: "/.auth/login/aad",
+      aliasPrefix: "go",
     });
   });
 
@@ -94,6 +96,7 @@ describe("GET /api/auth-config", () => {
       mode: "public",
       identityProviders: ["google", "github"],
       loginUrl: "/.auth/login/google",
+      aliasPrefix: "go",
     });
   });
 

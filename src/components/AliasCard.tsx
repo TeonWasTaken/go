@@ -1,3 +1,4 @@
+import { useAliasPrefix } from "../App";
 import type { AliasRecord } from "../services/api";
 
 interface AliasCardProps {
@@ -35,6 +36,7 @@ export function AliasCard({
   onDelete,
   onRenew,
 }: AliasCardProps) {
+  const aliasPrefix = useAliasPrefix();
   const isExpired = record.expiry_status === "expired";
   const isExpiringSoon = record.expiry_status === "expiring_soon";
 
@@ -72,7 +74,9 @@ export function AliasCard({
           >
             🔗
           </span>
-          <span className="alias-card__alias">go/{record.alias}</span>
+          <span className="alias-card__alias">
+            {aliasPrefix}/{record.alias}
+          </span>
           {record.is_private && (
             <span className="alias-card__badge alias-card__badge--personal">
               Personal

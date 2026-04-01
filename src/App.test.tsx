@@ -36,6 +36,7 @@ describe("AuthConfigContext", () => {
       mode: "corporate" as const,
       identityProviders: ["aad"],
       loginUrl: "/.auth/login/aad",
+      aliasPrefix: "go",
     };
 
     let captured: ReturnType<typeof useAuthConfig> = null;
@@ -74,6 +75,7 @@ describe("AuthConfigContext", () => {
       mode: "public" as const,
       identityProviders: ["google"],
       loginUrl: "/.auth/login/google",
+      aliasPrefix: "go",
     };
     vi.mocked(getAuthConfig).mockResolvedValue(mockConfig);
 

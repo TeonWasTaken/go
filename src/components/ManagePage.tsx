@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { useAuthConfig } from "../App";
+import { useAliasPrefix, useAuthConfig } from "../App";
 import type { AliasRecord } from "../services/api";
 import {
   ApiError,
@@ -35,6 +35,7 @@ export function ManagePage() {
   const [needsSignIn, setNeedsSignIn] = useState(false);
   const { showToast } = useToast();
   const authConfig = useAuthConfig();
+  const aliasPrefix = useAliasPrefix();
 
   const isPublicMode = authConfig?.mode === "public";
 
@@ -70,7 +71,7 @@ export function ManagePage() {
     try {
       await deleteLink(deleteTarget.alias);
       setRecords((prev) => prev.filter((r) => r.id !== deleteTarget.id));
-      showToast(`Deleted go/${deleteTarget.alias}`, "success");
+      showToast(`Deleted ${aliasPrefix}/${deleteTarget.alias}`, "success");
     } catch (err) {
       const msg =
         err instanceof ApiError ? err.message : "Failed to delete alias";
@@ -84,7 +85,7 @@ export function ManagePage() {
     try {
       const updated = await renewLinkApi(record.alias);
       setRecords((prev) => prev.map((r) => (r.id === record.id ? updated : r)));
-      showToast(`Renewed go/${record.alias}`, "success");
+      showToast(`Renewed ${aliasPrefix}/${record.alias}`, "success");
     } catch (err) {
       const msg =
         err instanceof ApiError ? err.message : "Failed to renew alias";
@@ -183,8 +184,11 @@ export function ManagePage() {
         >
           <div className="modal glass">
             <p>
-              Delete <strong>go/{deleteTarget.alias}</strong>? This cannot be
-              undone.
+              Delete{" "}
+              <strong>
+                {aliasPrefix}/{deleteTarget.alias}
+              </strong>
+              ? This cannot be undone.
             </p>
             <div className="modal__actions">
               <button className="btn" onClick={() => setDeleteTarget(null)}>

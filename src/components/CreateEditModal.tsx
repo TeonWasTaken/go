@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useAliasPrefix, useAuthConfig } from "../App";
 import type { AliasRecord } from "../services/api";
 import {
   ApiError,
@@ -26,6 +27,10 @@ export function CreateEditModal({
 }: CreateEditModalProps) {
   const isEdit = !!record;
   const { showToast } = useToast();
+  const authConfig = useAuthConfig();
+  const aliasPrefix = useAliasPrefix();
+  const isCorporate = authConfig?.mode === "corporate";
+  const globalLabel = isCorporate ? "🌐 Global (All Staff)" : "🌐 Public";
 
   const [alias, setAlias] = useState(record?.alias ?? "");
   const [destinationUrl, setDestinationUrl] = useState(
@@ -126,7 +131,7 @@ export function CreateEditModal({
           icon_url: iconUrl || undefined,
           ...buildExpiryPayload(expiry),
         });
-        showToast(`Updated go/${record.alias}`, "success");
+        showToast(`Updated ${aliasPrefix}/${record.alias}`, "success");
         onSaved(updated);
       } else {
         const created = await createLink({
@@ -137,7 +142,7 @@ export function CreateEditModal({
           icon_url: iconUrl || undefined,
           ...buildExpiryPayload(expiry),
         });
-        showToast(`Created go/${created.alias}`, "success");
+        showToast(`Created ${aliasPrefix}/${created.alias}`, "success");
         onSaved(created);
       }
     } catch (err) {
@@ -164,7 +169,7 @@ export function CreateEditModal({
         <label className="form-field">
           <span className="form-field__label">Alias</span>
           <div className="form-field__input-group">
-            <span className="form-field__prefix">go/</span>
+            <span className="form-field__prefix">{aliasPrefix}/</span>
             <input
               className="form-field__input form-field__input--prefixed"
               type="text"
@@ -209,7 +214,11 @@ export function CreateEditModal({
           />
         </label>
 
-        <ScopeToggle isPrivate={isPrivate} onChange={setIsPrivate} />
+        <ScopeToggle
+          isPrivate={isPrivate}
+          onChange={setIsPrivate}
+          globalLabel={globalLabel}
+        />
 
         {aliasConflict && (
           <p className="form-error" role="alert">

@@ -26,6 +26,8 @@ export function createAuthConfigHandler(strategy: AuthStrategy) {
     const primaryProvider = strategy.identityProviders[0] ?? "aad";
     const loginUrl = `/.auth/login/${primaryProvider}`;
 
+    const aliasPrefix = process.env.ALIAS_PREFIX || "go";
+
     return {
       status: 200,
       headers: { "content-type": "application/json" },
@@ -33,6 +35,7 @@ export function createAuthConfigHandler(strategy: AuthStrategy) {
         mode: strategy.mode,
         identityProviders: strategy.identityProviders,
         loginUrl,
+        aliasPrefix,
       }),
     };
   };

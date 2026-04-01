@@ -124,6 +124,7 @@ export interface AuthConfigResponse {
   mode: "corporate" | "public" | "dev";
   identityProviders: string[];
   loginUrl: string;
+  aliasPrefix: string;
 }
 
 export async function getAuthConfig(): Promise<AuthConfigResponse> {

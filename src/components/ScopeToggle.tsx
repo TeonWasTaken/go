@@ -3,9 +3,14 @@ import { useRef } from "react";
 interface ScopeToggleProps {
   isPrivate: boolean;
   onChange: (isPrivate: boolean) => void;
+  globalLabel?: string;
 }
 
-export function ScopeToggle({ isPrivate, onChange }: ScopeToggleProps) {
+export function ScopeToggle({
+  isPrivate,
+  onChange,
+  globalLabel = "🌐 Public",
+}: ScopeToggleProps) {
   const privateRef = useRef<HTMLButtonElement>(null);
   const globalRef = useRef<HTMLButtonElement>(null);
 
@@ -50,7 +55,7 @@ export function ScopeToggle({ isPrivate, onChange }: ScopeToggleProps) {
           className={`scope-toggle__option ${!isPrivate ? "scope-toggle__option--active" : ""}`}
           onClick={() => onChange(false)}
         >
-          🌐 Global (All Staff)
+          {globalLabel}
         </button>
         <div
           className="scope-toggle__slider"

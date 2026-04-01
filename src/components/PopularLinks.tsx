@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useAliasPrefix } from "../App";
 import type { AliasRecord } from "../services/api";
 import { ApiError, getLinks } from "../services/api";
 import { SkeletonLoader } from "./SkeletonLoader";
@@ -30,6 +31,7 @@ export function PopularLinks({ refreshKey = 0 }: PopularLinksProps) {
   const [links, setLinks] = useState<AliasRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const { showToast } = useToast();
+  const aliasPrefix = useAliasPrefix();
 
   useEffect(() => {
     let cancelled = false;
@@ -75,7 +77,9 @@ export function PopularLinks({ refreshKey = 0 }: PopularLinksProps) {
                 className="popular-links__item"
               >
                 <div className="popular-links__info">
-                  <span className="popular-links__alias">go/{link.alias}</span>
+                  <span className="popular-links__alias">
+                    {aliasPrefix}/{link.alias}
+                  </span>
                   {link.title && (
                     <span className="popular-links__title">{link.title}</span>
                   )}

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { useAliasPrefix } from "../App";
 
 /**
  * InterstitialPage — conflict resolution page displayed when a user's
@@ -18,6 +19,7 @@ const COUNTDOWN_SECONDS = 5;
 
 export function InterstitialPage() {
   const [params] = useSearchParams();
+  const aliasPrefix = useAliasPrefix();
   const alias = params.get("alias") ?? "";
   const privateUrl = params.get("privateUrl") ?? "/";
   const globalUrl = params.get("globalUrl") ?? "/";
@@ -64,7 +66,9 @@ export function InterstitialPage() {
   return (
     <div className="interstitial">
       <div className="interstitial__card glass">
-        <h1 className="interstitial__heading">go/{alias}</h1>
+        <h1 className="interstitial__heading">
+          {aliasPrefix}/{alias}
+        </h1>
         <p className="interstitial__subtitle">
           This alias exists as both a personal and a global link.
         </p>
