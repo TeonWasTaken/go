@@ -73,7 +73,7 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
 export interface GetLinksParams {
   search?: string;
   sort?: "clicks" | "heat";
-  scope?: "popular";
+  scope?: "popular" | "popular-clicks";
 }
 
 export async function getLinks(
@@ -156,15 +156,29 @@ export async function fetchCurrentUser(): Promise<UserIdentity | null> {
     const authPayload = Array.isArray(data) ? data[0] : data;
     const principal = authPayload?.clientPrincipal;
     if (!principal?.userDetails) return null;
-    const claims: { typ: string; val: string }[] = Array.isArray(principal.claims)
+    const claims: { typ: string; val: string }[] = Array.isArray(
+      principal.claims,
+    )
       ? principal.claims
       : [];
     const pictureClaim = claims.find(
-      (c) => c && typeof c.typ === "string" && c.typ === "picture" && typeof c.val === "string",
+      (c) =>
+        c &&
+        typeof c.typ === "string" &&
+        c.typ === "picture" &&
+        typeof c.val === "string",
     );
+    // SWA injects built-in roles like "anonymous" and "authenticated" into userRoles.
+    // Custom roles (e.g. "admin") assigned via SWA role management are also included.
+    // Filter out the built-in SWA roles so only meaningful app roles remain.
+    const builtInRoles = new Set(["anonymous", "authenticated"]);
+    const rawRoles: string[] = Array.isArray(principal.userRoles)
+      ? principal.userRoles
+      : [];
+    const appRoles = rawRoles.filter((r) => !builtInRoles.has(r));
     return {
       email: principal.userDetails,
-      roles: Array.isArray(principal.userRoles) ? principal.userRoles : [],
+      roles: appRoles,
       pictureUrl: pictureClaim?.val,
     };
   } catch {

@@ -14,8 +14,10 @@ import {
 import type { AuthStrategy } from "../shared/auth-strategy.js";
 import {
   getPopularGlobalAliases,
+  getPopularGlobalAliasesByClicks,
   listAliasesForUser,
   searchAliases,
+  searchPublicAliases,
 } from "../shared/cosmos-client.js";
 
 // ---------------------------------------------------------------------------
@@ -41,17 +43,21 @@ export function createGetLinksHandler(strategy: AuthStrategy) {
         };
       }
 
+      if (scope === "popular-clicks") {
+        const records = await getPopularGlobalAliasesByClicks(10);
+        return {
+          status: 200,
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(records),
+        };
+      }
+
       // --- Extract user identity ---
       const headers: Record<string, string> = {};
       req.headers.forEach((value, key) => {
         headers[key.toLowerCase()] = value;
       });
       const identity = strategy.extractIdentity(headers);
-      if (!identity) {
-        return { status: 401, body: "Unauthorized" };
-      }
-
-      const email = identity.email;
 
       // --- Parse remaining query parameters ---
       const search = req.query.get("search") || undefined;
@@ -59,7 +65,23 @@ export function createGetLinksHandler(strategy: AuthStrategy) {
       const sort =
         sortRaw === "clicks" || sortRaw === "heat" ? sortRaw : undefined;
 
-      // --- Search ---
+      // --- Anonymous search: public aliases only ---
+      if (!identity && search) {
+        const records = await searchPublicAliases(search);
+        return {
+          status: 200,
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(records),
+        };
+      }
+
+      if (!identity) {
+        return { status: 401, body: "Unauthorized" };
+      }
+
+      const email = identity.email;
+
+      // --- Authenticated search ---
       if (search) {
         const records = await searchAliases(email, search);
         return {

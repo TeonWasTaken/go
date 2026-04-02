@@ -149,6 +149,30 @@ export async function searchAliases(
 }
 
 // ---------------------------------------------------------------------------
+// Search public aliases only (for anonymous users)
+// ---------------------------------------------------------------------------
+
+export async function searchPublicAliases(
+  searchTerm: string,
+): Promise<AliasRecord[]> {
+  if (isInMemory()) return mem.searchPublic(searchTerm);
+
+  const container = getContainer();
+  const lower = searchTerm.toLowerCase();
+
+  const querySpec = {
+    query: `SELECT * FROM c WHERE c.is_private = false AND (CONTAINS(LOWER(c.alias), @term) OR CONTAINS(LOWER(c.title), @term))`,
+    parameters: [{ name: "@term", value: lower }],
+  };
+
+  const { resources } = await container.items
+    .query<AliasRecord>(querySpec)
+    .fetchAll();
+
+  return resources;
+}
+
+// ---------------------------------------------------------------------------
 // Create alias
 // ---------------------------------------------------------------------------
 
@@ -220,7 +244,30 @@ export async function getPopularGlobalAliases(
   const container = getContainer();
 
   const querySpec = {
-    query: `SELECT TOP @limit * FROM c WHERE c.is_private = false ORDER BY c.heat_score DESC`,
+    query: `SELECT TOP @limit * FROM c WHERE c.is_private = false AND c.expiry_status != 'expired' ORDER BY c.heat_score DESC`,
+    parameters: [{ name: "@limit", value: limit }],
+  };
+
+  const { resources } = await container.items
+    .query<AliasRecord>(querySpec)
+    .fetchAll();
+
+  return resources;
+}
+
+// ---------------------------------------------------------------------------
+// Popular global aliases by click count (all time)
+// ---------------------------------------------------------------------------
+
+export async function getPopularGlobalAliasesByClicks(
+  limit: number = 10,
+): Promise<AliasRecord[]> {
+  if (isInMemory()) return mem.getPopularGlobalByClicks(limit);
+
+  const container = getContainer();
+
+  const querySpec = {
+    query: `SELECT TOP @limit * FROM c WHERE c.is_private = false AND c.expiry_status != 'expired' ORDER BY c.click_count DESC`,
     parameters: [{ name: "@limit", value: limit }],
   };
 

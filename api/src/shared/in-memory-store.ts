@@ -54,6 +54,16 @@ export function search(userEmail: string, term: string): AliasRecord[] {
   );
 }
 
+export function searchPublic(term: string): AliasRecord[] {
+  const lower = term.toLowerCase();
+  return [...store.values()].filter(
+    (r) =>
+      !r.is_private &&
+      (r.alias.toLowerCase().includes(lower) ||
+        r.title.toLowerCase().includes(lower)),
+  );
+}
+
 export function create(record: AliasRecord): AliasRecord {
   store.set(key(record.alias, record.id), { ...record });
   return { ...record };
@@ -74,7 +84,14 @@ export function queryExpirable(): AliasRecord[] {
 
 export function getPopularGlobal(limit: number): AliasRecord[] {
   return [...store.values()]
-    .filter((r) => !r.is_private)
+    .filter((r) => !r.is_private && r.expiry_status !== "expired")
     .sort((a, b) => b.heat_score - a.heat_score)
+    .slice(0, limit);
+}
+
+export function getPopularGlobalByClicks(limit: number): AliasRecord[] {
+  return [...store.values()]
+    .filter((r) => !r.is_private && r.expiry_status !== "expired")
+    .sort((a, b) => b.click_count - a.click_count)
     .slice(0, limit);
 }

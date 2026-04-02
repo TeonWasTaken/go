@@ -37,7 +37,17 @@ export async function scrapeTitleHandler(
     // Extract <title> content
     const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
 
-    // Extract icon: check <link rel="icon"> or <link rel="shortcut icon">
+    // Extract icon: prefer high-res sources
+    // 1. Apple touch icon (typically 180×180)
+    const appleTouchMatch =
+      html.match(
+        /<link[^>]*rel=["']apple-touch-icon["'][^>]*href=["']([^"']+)["']/i,
+      ) ||
+      html.match(
+        /<link[^>]*href=["']([^"']+)["'][^>]*rel=["']apple-touch-icon["']/i,
+      );
+
+    // 2. Standard favicon from HTML
     const iconMatch =
       html.match(
         /<link[^>]*rel=["'](?:shortcut )?icon["'][^>]*href=["']([^"']+)["']/i,
@@ -46,9 +56,11 @@ export async function scrapeTitleHandler(
         /<link[^>]*href=["']([^"']+)["'][^>]*rel=["'](?:shortcut )?icon["']/i,
       );
 
+    const rawIcon = appleTouchMatch?.[1] ?? iconMatch?.[1] ?? null;
+
     let iconUrl = "";
-    if (iconMatch) {
-      iconUrl = iconMatch[1];
+    if (rawIcon) {
+      iconUrl = rawIcon;
       // Resolve relative URLs
       if (iconUrl.startsWith("/")) {
         const base = new URL(url);
@@ -58,9 +70,9 @@ export async function scrapeTitleHandler(
         iconUrl = `${base.origin}/${iconUrl}`;
       }
     } else {
-      // Fall back to /favicon.ico
+      // Fall back to Google's high-res favicon service (returns up to 256px)
       const base = new URL(url);
-      iconUrl = `${base.origin}/favicon.ico`;
+      iconUrl = `https://www.google.com/s2/favicons?domain=${encodeURIComponent(base.hostname)}&sz=64`;
     }
 
     return {

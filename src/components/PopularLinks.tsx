@@ -5,10 +5,32 @@ import { ApiError, getLinks } from "../services/api";
 import { SkeletonLoader } from "./SkeletonLoader";
 import { useToast } from "./ToastProvider";
 
+type PopularMode = "recent" | "alltime";
+
 /** Visual heat indicator: horizontal progress bar based on relative heat score. */
 function HeatIndicator({ score, max }: { score: number; max: number }) {
   const percentage = max > 0 ? Math.round((score / max) * 100) : 0;
   const level = max > 0 ? Math.ceil((score / max) * 5) : 0;
+  return (
+    <div
+      className="heat-bar"
+      role="meter"
+      aria-valuenow={percentage}
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-label={`Popularity: ${level} of 5`}
+    >
+      <div className="heat-bar__fill" style={{ width: `${percentage}%` }} />
+    </div>
+  );
+}
+
+/** Visual popularity indicator using log scale so high-traffic links don't dominate. */
+function ClickIndicator({ count, max }: { count: number; max: number }) {
+  const logCount = count > 0 ? Math.log(count + 1) : 0;
+  const logMax = max > 0 ? Math.log(max + 1) : 0;
+  const percentage = logMax > 0 ? Math.round((logCount / logMax) * 100) : 0;
+  const level = logMax > 0 ? Math.ceil((logCount / logMax) * 5) : 0;
   return (
     <div
       className="heat-bar"
@@ -30,6 +52,7 @@ interface PopularLinksProps {
 export function PopularLinks({ refreshKey = 0 }: PopularLinksProps) {
   const [links, setLinks] = useState<AliasRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [mode, setMode] = useState<PopularMode>("recent");
   const { showToast } = useToast();
   const aliasPrefix = useAliasPrefix();
 
@@ -38,7 +61,8 @@ export function PopularLinks({ refreshKey = 0 }: PopularLinksProps) {
     setLoading(true);
     (async () => {
       try {
-        const data = await getLinks({ scope: "popular" });
+        const scope = mode === "recent" ? "popular" : "popular-clicks";
+        const data = await getLinks({ scope });
         if (!cancelled) setLinks(data);
       } catch (err) {
         if (!cancelled) {
@@ -55,13 +79,45 @@ export function PopularLinks({ refreshKey = 0 }: PopularLinksProps) {
     return () => {
       cancelled = true;
     };
-  }, [showToast, refreshKey]);
+  }, [showToast, refreshKey, mode]);
 
   const maxHeat = links.reduce((m, l) => Math.max(m, l.heat_score), 0);
+  const maxClicks = links.reduce((m, l) => Math.max(m, l.click_count), 0);
+
+  // Route clicks through the redirect API so they're recorded
+  const isDev = import.meta.env.DEV;
+  const buildRedirectUrl = (alias: string) =>
+    isDev
+      ? `/go-redirect/${encodeURIComponent(alias)}`
+      : `/api/redirect/${encodeURIComponent(alias)}`;
 
   return (
     <section className="popular-links" aria-label="Popular links">
-      <h2 className="popular-links__heading">Popular Links</h2>
+      <div className="popular-links__header">
+        <h2 className="popular-links__heading">Popular Links</h2>
+        <div
+          className="popular-links__pill glass--subtle"
+          role="tablist"
+          aria-label="Popular links time range"
+        >
+          <button
+            role="tab"
+            aria-selected={mode === "recent"}
+            className={`popular-links__pill-option${mode === "recent" ? " popular-links__pill-option--active" : ""}`}
+            onClick={() => setMode("recent")}
+          >
+            Recent
+          </button>
+          <button
+            role="tab"
+            aria-selected={mode === "alltime"}
+            className={`popular-links__pill-option${mode === "alltime" ? " popular-links__pill-option--active" : ""}`}
+            onClick={() => setMode("alltime")}
+          >
+            All Time
+          </button>
+        </div>
+      </div>
       {loading ? (
         <SkeletonLoader height="2rem" borderRadius="var(--radius)" count={5} />
       ) : links.length === 0 ? (
@@ -71,11 +127,20 @@ export function PopularLinks({ refreshKey = 0 }: PopularLinksProps) {
           {links.map((link) => (
             <li key={link.id} role="listitem">
               <a
-                href={link.destination_url}
-                target="_blank"
-                rel="noopener noreferrer"
+                href={buildRedirectUrl(link.alias)}
                 className="popular-links__item"
               >
+                {link.icon_url ? (
+                  <img
+                    className="popular-links__favicon"
+                    src={link.icon_url}
+                    alt=""
+                    width={32}
+                    height={32}
+                  />
+                ) : (
+                  <span className="popular-links__favicon-placeholder">🔗</span>
+                )}
                 <div className="popular-links__info">
                   <span className="popular-links__alias">
                     {aliasPrefix}/{link.alias}
@@ -87,7 +152,11 @@ export function PopularLinks({ refreshKey = 0 }: PopularLinksProps) {
                     {link.destination_url}
                   </span>
                 </div>
-                <HeatIndicator score={link.heat_score} max={maxHeat} />
+                {mode === "recent" ? (
+                  <HeatIndicator score={link.heat_score} max={maxHeat} />
+                ) : (
+                  <ClickIndicator count={link.click_count} max={maxClicks} />
+                )}
               </a>
             </li>
           ))}
