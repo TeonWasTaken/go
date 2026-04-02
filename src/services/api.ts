@@ -145,6 +145,7 @@ export async function scrapeMetadata(
 export interface UserIdentity {
   email: string;
   roles: string[];
+  pictureUrl?: string;
 }
 
 export async function fetchCurrentUser(): Promise<UserIdentity | null> {
@@ -152,11 +153,19 @@ export async function fetchCurrentUser(): Promise<UserIdentity | null> {
     const res = await fetch("/.auth/me");
     if (!res.ok) return null;
     const data = await res.json();
-    const principal = data?.clientPrincipal;
+    const authPayload = Array.isArray(data) ? data[0] : data;
+    const principal = authPayload?.clientPrincipal;
     if (!principal?.userDetails) return null;
+    const claims: { typ: string; val: string }[] = Array.isArray(principal.claims)
+      ? principal.claims
+      : [];
+    const pictureClaim = claims.find(
+      (c) => c && typeof c.typ === "string" && c.typ === "picture" && typeof c.val === "string",
+    );
     return {
       email: principal.userDetails,
       roles: Array.isArray(principal.userRoles) ? principal.userRoles : [],
+      pictureUrl: pictureClaim?.val,
     };
   } catch {
     return null;
