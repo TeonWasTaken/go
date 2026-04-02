@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useAuthConfig } from "../App";
+import { useAuthConfig, useUser } from "../App";
 import type { AliasRecord } from "../services/api";
 import { CreateEditModal } from "./CreateEditModal";
 import { PopularLinks } from "./PopularLinks";
@@ -8,12 +8,14 @@ export function LandingPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const authConfig = useAuthConfig();
+  const user = useUser();
 
   const isPublicMode = authConfig?.mode === "public";
   const canCreate = authConfig?.allowPublicCreate !== false;
+  const isAuthenticated = !!user;
 
   const handleCreateClick = () => {
-    if (isPublicMode && authConfig?.loginUrl) {
+    if (!isAuthenticated && isPublicMode && authConfig?.loginUrl) {
       window.location.href = authConfig.loginUrl;
     } else {
       setShowCreate(true);
@@ -36,7 +38,7 @@ export function LandingPage() {
         </button>
       )}
 
-      {isPublicMode && (
+      {isPublicMode && !isAuthenticated && (
         <p className="landing-page__sign-in-prompt">
           Sign in to create and manage your own short links.
         </p>

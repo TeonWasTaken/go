@@ -28,6 +28,19 @@ export function createGetLinksHandler(strategy: AuthStrategy) {
     context: InvocationContext,
   ): Promise<HttpResponseInit> {
     try {
+      // --- Parse query parameters ---
+      const scope = req.query.get("scope") || undefined;
+
+      // --- Scope: popular (no auth required) ---
+      if (scope === "popular") {
+        const records = await getPopularGlobalAliases(10);
+        return {
+          status: 200,
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(records),
+        };
+      }
+
       // --- Extract user identity ---
       const headers: Record<string, string> = {};
       req.headers.forEach((value, key) => {
@@ -40,22 +53,11 @@ export function createGetLinksHandler(strategy: AuthStrategy) {
 
       const email = identity.email;
 
-      // --- Parse query parameters ---
+      // --- Parse remaining query parameters ---
       const search = req.query.get("search") || undefined;
       const sortRaw = req.query.get("sort") || undefined;
       const sort =
         sortRaw === "clicks" || sortRaw === "heat" ? sortRaw : undefined;
-      const scope = req.query.get("scope") || undefined;
-
-      // --- Scope: popular ---
-      if (scope === "popular") {
-        const records = await getPopularGlobalAliases(10);
-        return {
-          status: 200,
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify(records),
-        };
-      }
 
       // --- Search ---
       if (search) {

@@ -65,12 +65,15 @@ function parseHex(hex: string): [number, number, number] {
  * https://www.w3.org/TR/WCAG20/#relativeluminancedef
  */
 function relativeLuminance(hex: string): number {
-  const [r, g, b] = parseHex(hex).map((c) => {
+  const channels = parseHex(hex).map((c) => {
     const sRGB = c / 255;
     return sRGB <= 0.03928
       ? sRGB / 12.92
       : Math.pow((sRGB + 0.055) / 1.055, 2.4);
   });
+  const r = channels[0] ?? 0;
+  const g = channels[1] ?? 0;
+  const b = channels[2] ?? 0;
   return 0.2126 * r + 0.7152 * g + 0.0722 * b;
 }
 

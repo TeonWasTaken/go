@@ -51,13 +51,13 @@ describe("filterRecords", () => {
   it('returns only expiring_soon records when filter is "expiring_soon"', () => {
     const result = filterRecords(records, "expiring_soon");
     expect(result).toHaveLength(1);
-    expect(result[0].expiry_status).toBe("expiring_soon");
+    expect(result[0]?.expiry_status).toBe("expiring_soon");
   });
 
   it('returns only expired records when filter is "expired"', () => {
     const result = filterRecords(records, "expired");
     expect(result).toHaveLength(1);
-    expect(result[0].expiry_status).toBe("expired");
+    expect(result[0]?.expiry_status).toBe("expired");
   });
 
   it("returns empty array when no records match the filter", () => {

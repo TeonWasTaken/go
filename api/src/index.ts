@@ -12,6 +12,12 @@
  * separately in Task 5.
  */
 
+// Polyfill: SWA managed Functions runtime may lack the global crypto object
+import { webcrypto } from "node:crypto";
+if (typeof globalThis.crypto === "undefined") {
+  (globalThis as any).crypto = webcrypto;
+}
+
 import { createStrategy } from "./shared/auth-strategy.js";
 import { initStorage } from "./shared/cosmos-client.js";
 import { loadSeedData } from "./shared/seed-data.js";

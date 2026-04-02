@@ -28,6 +28,7 @@ const mockRecords: AliasRecord[] = [
     expires_at: null,
     expiry_status: "active",
     expired_at: null,
+    icon_url: null,
   },
   {
     id: "2",
@@ -47,6 +48,7 @@ const mockRecords: AliasRecord[] = [
     expires_at: "2026-04-15T09:00:00Z",
     expiry_status: "expiring_soon",
     expired_at: null,
+    icon_url: null,
   },
   {
     id: "3",
@@ -66,6 +68,7 @@ const mockRecords: AliasRecord[] = [
     expires_at: "2026-02-01T00:00:00Z",
     expiry_status: "expired",
     expired_at: "2026-02-01T00:00:00Z",
+    icon_url: null,
   },
   {
     id: "4",
@@ -85,6 +88,7 @@ const mockRecords: AliasRecord[] = [
     expires_at: "2027-01-02T08:00:00Z",
     expiry_status: "no_expiry",
     expired_at: null,
+    icon_url: null,
   },
 ];
 

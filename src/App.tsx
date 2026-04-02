@@ -52,7 +52,13 @@ function AliasRedirect() {
   const { "*": alias } = useParams();
   useEffect(() => {
     if (alias) {
-      window.location.href = `/go-redirect/${encodeURIComponent(alias)}`;
+      // In production, SWA rewrites /{alias} → /api/redirect/{alias} at the platform level.
+      // In dev, the Vite proxy handles /go-redirect → localhost:7071.
+      const isDev = import.meta.env.DEV;
+      const path = isDev
+        ? `/go-redirect/${encodeURIComponent(alias)}`
+        : `/api/redirect/${encodeURIComponent(alias)}`;
+      window.location.href = path;
     }
   }, [alias]);
   return (
