@@ -84,19 +84,12 @@ describe("AuthConfigContext", () => {
     };
     vi.mocked(getAuthConfig).mockResolvedValue(mockConfig);
 
-    let captured: ReturnType<typeof useAuthConfig> = null;
-    function Spy() {
-      captured = useAuthConfig();
-      return <div data-testid="spy" />;
-    }
-
     // Render App which internally provides AuthConfigContext
     render(
       <MemoryRouter>
         <ThemeProvider>
           <ToastProvider>
             <App />
-            {/* Spy reads from the same context tree since App provides it */}
           </ToastProvider>
         </ThemeProvider>
       </MemoryRouter>,
@@ -109,12 +102,6 @@ describe("AuthConfigContext", () => {
 
   it("falls back to dev config when API call fails", async () => {
     vi.mocked(getAuthConfig).mockRejectedValue(new Error("Network error"));
-
-    let captured: ReturnType<typeof useAuthConfig> = null;
-    function Spy() {
-      captured = useAuthConfig();
-      return null;
-    }
 
     render(
       <MemoryRouter>
