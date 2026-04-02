@@ -42,10 +42,14 @@ describe("filterRecords", () => {
     expect(filterRecords(records, "all")).toEqual(records);
   });
 
-  it('returns only active records when filter is "active"', () => {
+  it('returns active and no_expiry records when filter is "active"', () => {
     const result = filterRecords(records, "active");
-    expect(result).toHaveLength(2);
-    expect(result.every((r) => r.expiry_status === "active")).toBe(true);
+    expect(result).toHaveLength(3);
+    expect(
+      result.every(
+        (r) => r.expiry_status === "active" || r.expiry_status === "no_expiry",
+      ),
+    ).toBe(true);
   });
 
   it('returns only expiring_soon records when filter is "expiring_soon"', () => {
