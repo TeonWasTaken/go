@@ -10,6 +10,7 @@
  */
 
 import { Container, CosmosClient, Database } from "@azure/cosmos";
+import { Agent } from "node:https";
 import * as mem from "./in-memory-store.js";
 import { AliasRecord } from "./models.js";
 import { StorageConfig } from "./storage-config.js";
@@ -23,9 +24,13 @@ let _storageConfig: StorageConfig | undefined;
 /**
  * Initialize the storage mode once at startup.
  * Must be called before any data-access function.
+ * When Cosmos mode is active, eagerly creates the client and container.
  */
 export function initStorage(config: StorageConfig): void {
   _storageConfig = config;
+  if (!config.useInMemory) {
+    _container = createOptimizedContainer();
+  }
 }
 
 function isInMemory(): boolean {
@@ -43,6 +48,7 @@ function isInMemory(): boolean {
 export function resetStorage(): void {
   _storageConfig = undefined;
   _container = undefined;
+  _agent = undefined;
 }
 
 // ---------------------------------------------------------------------------
@@ -50,6 +56,38 @@ export function resetStorage(): void {
 // ---------------------------------------------------------------------------
 
 let _container: Container | undefined;
+let _agent: Agent | undefined;
+
+/**
+ * Create a CosmosClient with optimized connection settings and return
+ * the `aliases` container reference.
+ *
+ * Optimizations applied:
+ * - `https.Agent` with `keepAlive: true` to reuse TCP connections
+ * - `connectionPolicy.preferredLocations` from `COSMOS_PREFERRED_LOCATIONS` env var
+ */
+export function createOptimizedContainer(): Container {
+  const connectionString = process.env.COSMOS_CONNECTION_STRING;
+  if (!connectionString) {
+    throw new Error("COSMOS_CONNECTION_STRING environment variable is not set");
+  }
+
+  _agent = new Agent({ keepAlive: true });
+
+  const preferredLocations = process.env.COSMOS_PREFERRED_LOCATIONS
+    ? process.env.COSMOS_PREFERRED_LOCATIONS.split(",").map((s) => s.trim())
+    : undefined;
+
+  const client = new CosmosClient({
+    connectionString,
+    connectionPolicy: {
+      ...(preferredLocations && { preferredLocations }),
+    },
+    agent: _agent,
+  });
+
+  return client.database("go-url-alias").container("aliases");
+}
 
 function getContainer(): Container {
   if (_container) return _container;

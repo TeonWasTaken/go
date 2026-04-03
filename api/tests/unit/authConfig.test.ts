@@ -104,11 +104,37 @@ describe("GET /api/auth-config", () => {
     });
   });
 
-  it("sets content-type to application/json", async () => {
+  it("sets content-type and cache-control headers", async () => {
     const handler = createAuthConfigHandler(makeMockStrategy());
     const res = await handler(makeRequest(), makeContext());
 
-    expect(res.headers).toEqual({ "content-type": "application/json" });
+    expect(res.headers).toEqual({
+      "content-type": "application/json",
+      "cache-control": "public, max-age=300",
+    });
+  });
+
+  it("CP-5: returns Cache-Control header with default max-age=300 when env var is not set", async () => {
+    delete process.env.CACHE_MAX_AGE_AUTH_CONFIG;
+
+    const handler = createAuthConfigHandler(makeMockStrategy());
+    const res = await handler(makeRequest(), makeContext());
+
+    expect(res.headers).toBeDefined();
+    const headers = res.headers as Record<string, string>;
+    expect(headers["cache-control"]).toBe("public, max-age=300");
+  });
+
+  it("CP-11: uses custom CACHE_MAX_AGE_AUTH_CONFIG in Cache-Control header", async () => {
+    process.env.CACHE_MAX_AGE_AUTH_CONFIG = "600";
+
+    const handler = createAuthConfigHandler(makeMockStrategy());
+    const res = await handler(makeRequest(), makeContext());
+
+    const headers = res.headers as Record<string, string>;
+    expect(headers["cache-control"]).toBe("public, max-age=600");
+
+    delete process.env.CACHE_MAX_AGE_AUTH_CONFIG;
   });
 
   it("falls back to aad when identityProviders is empty", async () => {

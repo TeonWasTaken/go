@@ -19,11 +19,13 @@ vi.mock("../../src/shared/cosmos-client.js", () => ({
   listAliasesForUser: vi.fn(),
   searchAliases: vi.fn(),
   getPopularGlobalAliases: vi.fn(),
+  getPopularGlobalAliasesByClicks: vi.fn(),
 }));
 
 import { createGetLinksHandler } from "../../src/functions/getLinks.js";
 import {
   getPopularGlobalAliases,
+  getPopularGlobalAliasesByClicks,
   listAliasesForUser,
   searchAliases,
 } from "../../src/shared/cosmos-client.js";
@@ -31,6 +33,7 @@ import {
 const mockListAliases = vi.mocked(listAliasesForUser);
 const mockSearchAliases = vi.mocked(searchAliases);
 const mockGetPopular = vi.mocked(getPopularGlobalAliases);
+const mockGetPopularByClicks = vi.mocked(getPopularGlobalAliasesByClicks);
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -104,6 +107,7 @@ let strategy: AuthStrategy;
 
 beforeEach(() => {
   vi.clearAllMocks();
+  delete process.env.CACHE_MAX_AGE_POPULAR;
   strategy = makeMockStrategy();
 });
 
@@ -207,5 +211,64 @@ describe("getLinks handler", () => {
     const res = await handler(makeRequest(), ctx);
     expect(res.status).toBe(500);
     expect(ctx.error).toHaveBeenCalled();
+  });
+
+  it("returns Cache-Control header with default max-age=3600 for scope=popular", async () => {
+    delete process.env.CACHE_MAX_AGE_POPULAR;
+    mockGetPopular.mockResolvedValue([]);
+
+    const handler = createGetLinksHandler(strategy);
+    const res = await handler(makeRequest({ scope: "popular" }), makeContext());
+    expect(res.status).toBe(200);
+    expect(res.headers).toHaveProperty("cache-control", "public, max-age=3600");
+  });
+
+  it("returns Cache-Control header with default max-age=3600 for scope=popular-clicks", async () => {
+    delete process.env.CACHE_MAX_AGE_POPULAR;
+    mockGetPopularByClicks.mockResolvedValue([]);
+
+    const handler = createGetLinksHandler(strategy);
+    const res = await handler(
+      makeRequest({ scope: "popular-clicks" }),
+      makeContext(),
+    );
+    expect(res.status).toBe(200);
+    expect(res.headers).toHaveProperty("cache-control", "public, max-age=3600");
+  });
+
+  it("CP-10: uses custom CACHE_MAX_AGE_POPULAR for scope=popular", async () => {
+    process.env.CACHE_MAX_AGE_POPULAR = "7200";
+    mockGetPopular.mockResolvedValue([]);
+
+    const handler = createGetLinksHandler(strategy);
+    const res = await handler(makeRequest({ scope: "popular" }), makeContext());
+    expect(res.status).toBe(200);
+    expect(res.headers).toHaveProperty("cache-control", "public, max-age=7200");
+
+    delete process.env.CACHE_MAX_AGE_POPULAR;
+  });
+
+  it("CP-10: uses custom CACHE_MAX_AGE_POPULAR for scope=popular-clicks", async () => {
+    process.env.CACHE_MAX_AGE_POPULAR = "7200";
+    mockGetPopularByClicks.mockResolvedValue([]);
+
+    const handler = createGetLinksHandler(strategy);
+    const res = await handler(
+      makeRequest({ scope: "popular-clicks" }),
+      makeContext(),
+    );
+    expect(res.status).toBe(200);
+    expect(res.headers).toHaveProperty("cache-control", "public, max-age=7200");
+
+    delete process.env.CACHE_MAX_AGE_POPULAR;
+  });
+
+  it("does not include cache-control header for non-popular scopes", async () => {
+    mockListAliases.mockResolvedValue([]);
+
+    const handler = createGetLinksHandler(strategy);
+    const res = await handler(makeRequest(), makeContext());
+    expect(res.status).toBe(200);
+    expect(res.headers).toEqual({ "content-type": "application/json" });
   });
 });

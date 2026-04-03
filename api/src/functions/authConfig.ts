@@ -23,6 +23,10 @@ export function createAuthConfigHandler(strategy: AuthStrategy) {
     _req: HttpRequest,
     _context: InvocationContext,
   ): Promise<HttpResponseInit> {
+    const authConfigMaxAge = parseInt(
+      process.env.CACHE_MAX_AGE_AUTH_CONFIG || "300",
+      10,
+    );
     const primaryProvider = strategy.identityProviders[0] ?? "aad";
     const loginUrl = `/.auth/login/${primaryProvider}`;
 
@@ -48,7 +52,10 @@ export function createAuthConfigHandler(strategy: AuthStrategy) {
 
     return {
       status: 200,
-      headers: { "content-type": "application/json" },
+      headers: {
+        "content-type": "application/json",
+        "cache-control": `public, max-age=${authConfigMaxAge}`,
+      },
       body: JSON.stringify(response),
     };
   };

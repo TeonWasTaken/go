@@ -32,13 +32,20 @@ export function createGetLinksHandler(strategy: AuthStrategy) {
     try {
       // --- Parse query parameters ---
       const scope = req.query.get("scope") || undefined;
+      const popularMaxAge = parseInt(
+        process.env.CACHE_MAX_AGE_POPULAR || "3600",
+        10,
+      );
 
       // --- Scope: popular (no auth required) ---
       if (scope === "popular") {
         const records = await getPopularGlobalAliases(10);
         return {
           status: 200,
-          headers: { "content-type": "application/json" },
+          headers: {
+            "content-type": "application/json",
+            "cache-control": `public, max-age=${popularMaxAge}`,
+          },
           body: JSON.stringify(records),
         };
       }
@@ -47,7 +54,10 @@ export function createGetLinksHandler(strategy: AuthStrategy) {
         const records = await getPopularGlobalAliasesByClicks(10);
         return {
           status: 200,
-          headers: { "content-type": "application/json" },
+          headers: {
+            "content-type": "application/json",
+            "cache-control": `public, max-age=${popularMaxAge}`,
+          },
           body: JSON.stringify(records),
         };
       }

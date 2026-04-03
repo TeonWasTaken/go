@@ -1,4 +1,6 @@
 import fc from "fast-check";
+import * as fs from "node:fs";
+import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 import { generateSwaConfig } from "../../../scripts/generate-swa-config.js";
 
@@ -80,5 +82,24 @@ describe("Property 13: SWA config 401 redirect targets primary provider", () => 
       }),
       { numRuns: 100 },
     );
+  });
+});
+
+// ── CP-7: Node.js runtime version ───────────────────────────────────
+
+describe("CP-7: Node.js runtime version", () => {
+  /**
+   * **Validates: Requirements 2.5**
+   *
+   * The committed staticwebapp.config.json must specify node:20 as the
+   * API runtime so Azure Functions uses the faster Node 20 engine.
+   */
+  it("staticwebapp.config.json specifies node:20 runtime", () => {
+    const configPath = path.resolve(
+      __dirname,
+      "../../../staticwebapp.config.json",
+    );
+    const config = JSON.parse(fs.readFileSync(configPath, "utf-8"));
+    expect(config.platform.apiRuntime).toBe("node:20");
   });
 });
