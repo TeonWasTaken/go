@@ -78,8 +78,13 @@ export function createOptimizedContainer(): Container {
     ? process.env.COSMOS_PREFERRED_LOCATIONS.split(",").map((s) => s.trim())
     : undefined;
 
+  // Parse connection string into endpoint + key so we can pass additional
+  // options (agent, connectionPolicy). The string overload doesn't accept those.
+  const parsed = parseConnectionString(connectionString);
+
   const client = new CosmosClient({
-    connectionString,
+    endpoint: parsed.endpoint,
+    key: parsed.key,
     connectionPolicy: {
       ...(preferredLocations && { preferredLocations }),
     },
@@ -87,6 +92,26 @@ export function createOptimizedContainer(): Container {
   });
 
   return client.database("go-url-alias").container("aliases");
+}
+
+function parseConnectionString(cs: string): {
+  endpoint: string;
+  key: string;
+} {
+  const parts = new Map(
+    cs.split(";").map((part) => {
+      const idx = part.indexOf("=");
+      return [part.slice(0, idx), part.slice(idx + 1)] as [string, string];
+    }),
+  );
+  const endpoint = parts.get("AccountEndpoint");
+  const key = parts.get("AccountKey");
+  if (!endpoint || !key) {
+    throw new Error(
+      "Invalid COSMOS_CONNECTION_STRING: must contain AccountEndpoint and AccountKey",
+    );
+  }
+  return { endpoint, key };
 }
 
 function getContainer(): Container {

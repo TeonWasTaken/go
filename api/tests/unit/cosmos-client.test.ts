@@ -69,6 +69,17 @@ describe("cosmos-client eager initialization", () => {
       expect(callArgs.agent.keepAlive).toBe(true);
     });
 
+    it("parses connection string into endpoint and key", () => {
+      process.env.COSMOS_CONNECTION_STRING =
+        "AccountEndpoint=https://localhost:8081/;AccountKey=abc==";
+
+      initStorage({ useInMemory: false });
+
+      const callArgs = MockCosmosClientConstructor.mock.calls[0][0];
+      expect(callArgs.endpoint).toBe("https://localhost:8081/");
+      expect(callArgs.key).toBe("abc==");
+    });
+
     it("passes preferredLocations when COSMOS_PREFERRED_LOCATIONS is set", () => {
       process.env.COSMOS_CONNECTION_STRING =
         "AccountEndpoint=https://localhost:8081/;AccountKey=abc==";
