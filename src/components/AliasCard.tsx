@@ -1,5 +1,6 @@
 import { useAliasPrefix } from "../App";
 import type { AliasRecord } from "../services/api";
+import { IconFallback } from "./IconFallback";
 
 interface AliasCardProps {
   record: AliasRecord;
@@ -53,27 +54,12 @@ export function AliasCard({
     >
       <div className="alias-card__header">
         <div className="alias-card__title-row">
-          {record.icon_url ? (
-            <img
-              className="alias-card__icon"
-              src={record.icon_url}
-              alt=""
-              onError={(e) => {
-                (e.target as HTMLImageElement).style.display = "none";
-                // Show placeholder sibling
-                const placeholder = (e.target as HTMLImageElement)
-                  .nextElementSibling;
-                if (placeholder)
-                  (placeholder as HTMLElement).style.display = "flex";
-              }}
-            />
-          ) : null}
-          <span
-            className="alias-card__icon-placeholder"
-            style={record.icon_url ? { display: "none" } : undefined}
-          >
-            🔗
-          </span>
+          <IconFallback
+            iconUrl={record.icon_url}
+            title={record.title}
+            alias={record.alias}
+            size={20}
+          />
           <span className="alias-card__alias">
             {aliasPrefix}/{record.alias}
           </span>

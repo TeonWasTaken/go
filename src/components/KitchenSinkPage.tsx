@@ -3,9 +3,11 @@ import type { AliasRecord } from "../services/api";
 import { AliasCard } from "./AliasCard";
 import type { ExpiryPolicyValue } from "./ExpiryPolicySelector";
 import { ExpiryPolicySelector } from "./ExpiryPolicySelector";
+import { IconFallback } from "./IconFallback";
 import { ScopeToggle } from "./ScopeToggle";
 import { SearchBar } from "./SearchBar";
 import { SkeletonLoader } from "./SkeletonLoader";
+import { ThemeToggle } from "./ThemeToggle";
 import { useToast } from "./ToastProvider";
 
 /* ── Mock data ── */
@@ -28,7 +30,7 @@ const mockRecords: AliasRecord[] = [
     expires_at: null,
     expiry_status: "active",
     expired_at: null,
-    icon_url: null,
+    icon_url: "https://www.google.com/favicon.ico",
   },
   {
     id: "2",
@@ -350,6 +352,149 @@ export function KitchenSinkPage() {
           <button className="filter-tabs__tab">Expired</button>
           <button className="filter-tabs__tab">Personal</button>
         </div>
+      </section>
+
+      {/* ── Icon Fallback ── */}
+      <section className="kitchen-sink__section">
+        <h2 className="kitchen-sink__heading">Icon Fallback</h2>
+        <p className="kitchen-sink__desc">
+          Generated letter icons with deterministic colors from the WCAG
+          AA-compliant palette. Each title string hashes to a consistent color.
+        </p>
+        <div
+          className="kitchen-sink__row"
+          style={{ flexWrap: "wrap", gap: "1rem" }}
+        >
+          {[
+            { title: "Design Docs", alias: "design" },
+            { title: "Personal Notes", alias: "notes" },
+            { title: "Legacy Wiki", alias: "wiki" },
+            { title: "Roadmap", alias: "roadmap" },
+            { title: "Analytics", alias: "analytics" },
+            { title: "Billing Portal", alias: "billing" },
+            { title: "CI Pipeline", alias: "ci" },
+            { title: "Kubernetes", alias: "k8s" },
+            { title: "Terraform", alias: "tf" },
+            { title: "Onboarding", alias: "onboard" },
+          ].map((item) => (
+            <div key={item.alias} style={{ textAlign: "center" }}>
+              <IconFallback
+                iconUrl={null}
+                title={item.title}
+                alias={item.alias}
+                size={40}
+              />
+              <div
+                style={{
+                  fontSize: "0.7rem",
+                  color: "var(--color-text-muted)",
+                  marginTop: 4,
+                }}
+              >
+                {item.title}
+              </div>
+            </div>
+          ))}
+        </div>
+        <p className="kitchen-sink__desc" style={{ marginTop: "1rem" }}>
+          Fallback behavior: valid image → broken image (triggers fallback) →
+          missing URL.
+        </p>
+        <div
+          className="kitchen-sink__row"
+          style={{ gap: "1.5rem", alignItems: "center" }}
+        >
+          <div style={{ textAlign: "center" }}>
+            <IconFallback
+              iconUrl="https://www.google.com/favicon.ico"
+              title="Google"
+              alias="goog"
+              size={32}
+            />
+            <div
+              style={{
+                fontSize: "0.7rem",
+                color: "var(--color-text-muted)",
+                marginTop: 4,
+              }}
+            >
+              Valid image
+            </div>
+          </div>
+          <div style={{ textAlign: "center" }}>
+            <IconFallback
+              iconUrl="https://invalid.example/broken.ico"
+              title="Broken"
+              alias="brk"
+              size={32}
+            />
+            <div
+              style={{
+                fontSize: "0.7rem",
+                color: "var(--color-text-muted)",
+                marginTop: 4,
+              }}
+            >
+              Broken image
+            </div>
+          </div>
+          <div style={{ textAlign: "center" }}>
+            <IconFallback
+              iconUrl={null}
+              title="No Icon"
+              alias="none"
+              size={32}
+            />
+            <div
+              style={{
+                fontSize: "0.7rem",
+                color: "var(--color-text-muted)",
+                marginTop: 4,
+              }}
+            >
+              No URL
+            </div>
+          </div>
+          <div style={{ textAlign: "center" }}>
+            <IconFallback iconUrl={null} title="" alias="" size={32} />
+            <div
+              style={{
+                fontSize: "0.7rem",
+                color: "var(--color-text-muted)",
+                marginTop: 4,
+              }}
+            >
+              Empty (?)
+            </div>
+          </div>
+        </div>
+        <p className="kitchen-sink__desc" style={{ marginTop: "1rem" }}>
+          Size variants: 16px, 20px (AliasCard), 32px (PopularLinks), 48px.
+        </p>
+        <div
+          className="kitchen-sink__row"
+          style={{ gap: "1rem", alignItems: "center" }}
+        >
+          {[16, 20, 32, 48].map((s) => (
+            <IconFallback
+              key={s}
+              iconUrl={null}
+              title="Size"
+              alias="s"
+              size={s}
+            />
+          ))}
+        </div>
+      </section>
+
+      {/* ── Theme Toggle ── */}
+      <section className="kitchen-sink__section">
+        <h2 className="kitchen-sink__heading">Theme Toggle</h2>
+        <p className="kitchen-sink__desc">
+          Three-way radio group for switching between light, dark, and system
+          themes.
+        </p>
+        <ThemeToggle />
       </section>
 
       {/* ── Color Palette ── */}

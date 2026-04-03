@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useAliasPrefix } from "../App";
 import type { AliasRecord } from "../services/api";
 import { ApiError, getLinks } from "../services/api";
+import { IconFallback } from "./IconFallback";
 import { SkeletonLoader } from "./SkeletonLoader";
 import { useToast } from "./ToastProvider";
 
@@ -130,17 +131,12 @@ export function PopularLinks({ refreshKey = 0 }: PopularLinksProps) {
                 href={buildRedirectUrl(link.alias)}
                 className="popular-links__item"
               >
-                {link.icon_url ? (
-                  <img
-                    className="popular-links__favicon"
-                    src={link.icon_url}
-                    alt=""
-                    width={32}
-                    height={32}
-                  />
-                ) : (
-                  <span className="popular-links__favicon-placeholder">🔗</span>
-                )}
+                <IconFallback
+                  iconUrl={link.icon_url}
+                  title={link.title}
+                  alias={link.alias}
+                  size={32}
+                />
                 <div className="popular-links__info">
                   <span className="popular-links__alias">
                     {aliasPrefix}/{link.alias}
