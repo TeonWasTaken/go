@@ -3,7 +3,7 @@
  *
  * Evaluates all alias records with an expiry policy and transitions them
  * through the expiry state machine:
- *   active → expiring_soon (within 7 days of expires_at)
+ *   active → expiring_soon (within 30 days of expires_at)
  *   active/expiring_soon → expired (past expires_at)
  *   expired → permanently deleted (14 days after expired_at)
  *
@@ -12,9 +12,9 @@
 
 import { app, InvocationContext, Timer } from "@azure/functions";
 import {
-  deleteAlias,
-  queryExpirableAliases,
-  updateAlias,
+    deleteAlias,
+    queryExpirableAliases,
+    updateAlias,
 } from "../shared/cosmos-client.js";
 import { AliasRecord } from "../shared/models.js";
 
@@ -22,7 +22,7 @@ import { AliasRecord } from "../shared/models.js";
 // Constants
 // ---------------------------------------------------------------------------
 
-const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
 const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000;
 
 // ---------------------------------------------------------------------------
@@ -87,11 +87,11 @@ export async function processExpiryRecords(
         continue;
       }
 
-      // --- Transition to expiring_soon: within 7 days ---
+      // --- Transition to expiring_soon: within 30 days ---
       if (
         expiresAtMs !== null &&
         expiresAtMs >= nowMs &&
-        expiresAtMs - nowMs <= SEVEN_DAYS_MS &&
+        expiresAtMs - nowMs <= THIRTY_DAYS_MS &&
         record.expiry_status === "active"
       ) {
         record.expiry_status = "expiring_soon";

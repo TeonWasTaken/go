@@ -10,10 +10,10 @@
  */
 
 import {
-  app,
-  HttpRequest,
-  HttpResponseInit,
-  InvocationContext,
+    app,
+    HttpRequest,
+    HttpResponseInit,
+    InvocationContext,
 } from "@azure/functions";
 import type { AuthStrategy } from "../shared/auth-strategy.js";
 import { getAliasByPartition, updateAlias } from "../shared/cosmos-client.js";
@@ -86,9 +86,8 @@ export function createRenewLinkHandler(strategy: AuthStrategy) {
       });
 
       record.expires_at = expiry.expires_at;
-      record.expiry_status =
-        expiry.expiry_status === "no_expiry" ? "no_expiry" : "active";
-      record.expired_at = null;
+      record.expiry_status = expiry.expiry_status;
+      record.expired_at = expiry.expired_at;
 
       // --- Save to Cosmos DB ---
       const updated = await updateAlias(record);

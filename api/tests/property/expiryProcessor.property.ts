@@ -20,7 +20,7 @@ import { processExpiryRecords } from "../../src/functions/expiryProcessor.js";
 // Constants (mirrored from implementation for clarity)
 // ---------------------------------------------------------------------------
 
-const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
 const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000;
 
 // ---------------------------------------------------------------------------
@@ -104,19 +104,19 @@ describe("Property 18: Expiry state machine transitions are correct", () => {
    * Validates: Requirements 10.1, 10.2, 10.5, 11.2, 11.3, 11.4, 11.5
    *
    * For any set of alias records where expiry_policy_type is not 'never':
-   * - Records with expires_at within 7 days and status 'active' → 'expiring_soon'
+   * - Records with expires_at within 30 days and status 'active' → 'expiring_soon'
    * - Records with expires_at in the past and status not 'expired' → 'expired' with expired_at set
    * - Records with status 'expired' and expired_at older than 14 days → permanently deleted
    * - Records with expiry_policy_type 'never' should not be evaluated
    */
 
-  it("active records within 7 days of expiry transition to expiring_soon", async () => {
+  it("active records within 30 days of expiry transition to expiring_soon", async () => {
     await fc.assert(
       fc.asyncProperty(
         aliasArb,
         nowArb,
-        // days until expiry: 0 < days <= 7
-        fc.integer({ min: 1, max: 7 }),
+        // days until expiry: 0 < days <= 30
+        fc.integer({ min: 1, max: 30 }),
         async (alias, now, daysUntil) => {
           const expiresAt = new Date(
             now.getTime() + daysUntil * 24 * 60 * 60 * 1000 - 1000,
@@ -236,8 +236,8 @@ describe("Property 18: Expiry state machine transitions are correct", () => {
       fc.asyncProperty(
         aliasArb,
         nowArb,
-        // days until expiry: > 7
-        fc.integer({ min: 8, max: 365 }),
+        // days until expiry: > 30
+        fc.integer({ min: 31, max: 365 }),
         async (alias, now, daysUntil) => {
           const expiresAt = new Date(
             now.getTime() + daysUntil * 24 * 60 * 60 * 1000,
@@ -300,7 +300,7 @@ describe("Property 21: Expiry processor summary matches actual transitions", () 
     const recordSetArb = fc.tuple(
       nowArb,
       // Number of each type of record
-      fc.integer({ min: 0, max: 5 }), // active within 7 days
+      fc.integer({ min: 0, max: 5 }), // active within 30 days
       fc.integer({ min: 0, max: 5 }), // past expiry (not yet expired)
       fc.integer({ min: 0, max: 5 }), // expired past grace period
       fc.integer({ min: 0, max: 5 }), // expired within grace period (no-op)
@@ -321,7 +321,7 @@ describe("Property 21: Expiry processor summary matches actual transitions", () 
           const records: AliasRecord[] = [];
           let idx = 0;
 
-          // Active records within 7 days → should become expiring_soon
+          // Active records within 30 days → should become expiring_soon
           for (let i = 0; i < expiringSoonCount; i++) {
             records.push(
               makeRecord({
@@ -448,7 +448,7 @@ describe("Property 21: Expiry processor summary matches actual transitions", () 
             makeRecord({
               alias: "good",
               expires_at: new Date(
-                now.getTime() + 3 * 24 * 60 * 60 * 1000,
+                now.getTime() + 31 * 24 * 60 * 60 * 1000,
               ).toISOString(),
               expiry_status: "active",
               expiry_policy_type: "fixed",
@@ -471,7 +471,7 @@ describe("Property 21: Expiry processor summary matches actual transitions", () 
           const result = await processExpiryRecords(records, now, deps);
 
           expect(result.errors).toBe(errorCount);
-          expect(result.transitioned_to_expiring_soon).toBe(1);
+          expect(result.transitioned_to_expiring_soon).toBe(0);
         },
       ),
       { numRuns: 50 },

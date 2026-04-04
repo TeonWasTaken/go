@@ -79,7 +79,17 @@ describe("Property 12: Expiry timestamp is computed correctly from policy", () =
           const expected = expectedAddMonths(createdDate, duration);
 
           expect(result.expires_at).toBe(expected.toISOString());
-          expect(result.expiry_status).toBe("active");
+          // Status depends on how far expires_at is from now
+          const expiresAtMs = expected.getTime();
+          const nowMs = now.getTime();
+          const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+          if (expiresAtMs <= nowMs) {
+            expect(result.expiry_status).toBe("expired");
+          } else if (expiresAtMs - nowMs <= THIRTY_DAYS_MS) {
+            expect(result.expiry_status).toBe("expiring_soon");
+          } else {
+            expect(result.expiry_status).toBe("active");
+          }
           expect(result.expiry_policy_type).toBe("fixed");
           expect(result.duration_months).toBe(duration);
         },
@@ -98,7 +108,17 @@ describe("Property 12: Expiry timestamp is computed correctly from policy", () =
         });
 
         expect(result.expires_at).toBe(customDate);
-        expect(result.expiry_status).toBe("active");
+        // Status depends on how far custom_expires_at is from now
+        const expiresAtMs = new Date(customDate).getTime();
+        const nowMs = now.getTime();
+        const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+        if (expiresAtMs <= nowMs) {
+          expect(result.expiry_status).toBe("expired");
+        } else if (expiresAtMs - nowMs <= THIRTY_DAYS_MS) {
+          expect(result.expiry_status).toBe("expiring_soon");
+        } else {
+          expect(result.expiry_status).toBe("active");
+        }
         expect(result.expiry_policy_type).toBe("fixed");
         expect(result.duration_months).toBeNull();
       }),

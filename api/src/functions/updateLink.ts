@@ -8,18 +8,18 @@
  */
 
 import {
-  app,
-  HttpRequest,
-  HttpResponseInit,
-  InvocationContext,
+    app,
+    HttpRequest,
+    HttpResponseInit,
+    InvocationContext,
 } from "@azure/functions";
 import type { AuthStrategy } from "../shared/auth-strategy.js";
 import { getAliasByPartition, updateAlias } from "../shared/cosmos-client.js";
 import { computeExpiry } from "../shared/expiry-utils.js";
 import {
-  AliasRecord,
-  UpdateAliasRequest,
-  validateUpdateAliasRequest,
+    AliasRecord,
+    UpdateAliasRequest,
+    validateUpdateAliasRequest,
 } from "../shared/models.js";
 
 // ---------------------------------------------------------------------------
@@ -120,8 +120,8 @@ export function createUpdateLinkHandler(strategy: AuthStrategy) {
         record.duration_months = expiry.duration_months;
         record.custom_expires_at = body.custom_expires_at ?? null;
         record.expires_at = expiry.expires_at;
-        record.expiry_status =
-          expiry.expiry_status === "no_expiry" ? "no_expiry" : "active";
+        record.expiry_status = expiry.expiry_status;
+        record.expired_at = expiry.expired_at;
       }
 
       // --- Save to Cosmos DB ---
