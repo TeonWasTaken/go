@@ -3,8 +3,13 @@ import { useAuthConfig, useUser } from "../App";
 import type { AliasRecord } from "../services/api";
 import { CreateEditModal } from "./CreateEditModal";
 import { PopularLinks } from "./PopularLinks";
+import { SearchResultsPanel } from "./SearchResultsPanel";
 
-export function LandingPage() {
+interface LandingPageProps {
+  searchTerm?: string;
+}
+
+export function LandingPage({ searchTerm = "" }: LandingPageProps) {
   const [showCreate, setShowCreate] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const authConfig = useAuthConfig();
@@ -44,7 +49,11 @@ export function LandingPage() {
         </p>
       )}
 
-      <PopularLinks refreshKey={refreshKey} />
+      {searchTerm ? (
+        <SearchResultsPanel searchTerm={searchTerm} />
+      ) : (
+        <PopularLinks refreshKey={refreshKey} />
+      )}
 
       {showCreate && (
         <CreateEditModal

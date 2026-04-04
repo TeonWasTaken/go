@@ -75,6 +75,7 @@ function App() {
   const { resolved: theme } = useTheme();
   const [authConfig, setAuthConfig] = useState<AuthConfigResponse | null>(null);
   const [user, setUser] = useState<UserIdentity | null>(null);
+  const [landingSearchTerm, setLandingSearchTerm] = useState("");
 
   useEffect(() => {
     getAuthConfig()
@@ -110,32 +111,42 @@ function App() {
   ].includes(location.pathname);
   const headerSearchValue = isManagePage ? searchParams.get("q") || "" : "";
 
+  useEffect(() => {
+    if (location.pathname !== "/") {
+      setLandingSearchTerm("");
+    }
+  }, [location.pathname]);
+
   const handleHeaderSearch = useCallback(
     (term: string) => {
-      // Navigate to manage page with search term on any page (debounced as-you-type)
-      navigate(
-        term
-          ? `/_/manage?q=${encodeURIComponent(term)}`
-          : isManagePage
-            ? "/_/manage"
-            : "/",
-        {
-          replace: true,
-        },
-      );
+      if (location.pathname === "/") {
+        setLandingSearchTerm(term);
+      } else {
+        navigate(
+          term
+            ? `/_/manage?q=${encodeURIComponent(term)}`
+            : isManagePage
+              ? "/_/manage"
+              : "/",
+          {
+            replace: true,
+          },
+        );
+      }
     },
-    [isManagePage, navigate],
+    [location.pathname, isManagePage, navigate],
   );
 
   const handleHeaderSubmit = useCallback(
     (term: string) => {
-      if (!isManagePage) {
-        // On landing page (or any non-manage page), navigate to manage with query
+      if (location.pathname === "/") {
+        setLandingSearchTerm(term);
+      } else if (!isManagePage) {
         navigate(term ? `/_/manage?q=${encodeURIComponent(term)}` : "/_/manage");
       }
       // On manage page, the debounced onSearch already handles filtering
     },
-    [isManagePage, navigate],
+    [location.pathname, isManagePage, navigate],
   );
 
   return (
@@ -168,7 +179,7 @@ function App() {
         )}
         <main className="container main-content">
           <Routes>
-            <Route path="/" element={<LandingPage />} />
+            <Route path="/" element={<LandingPage searchTerm={landingSearchTerm} />} />
             <Route path="/_/manage" element={<ManagePage />} />
             <Route path="/_/interstitial" element={<InterstitialPage />} />
             <Route path="/_/kitchen-sink" element={<KitchenSinkPage />} />

@@ -57,6 +57,13 @@ export function SearchBar({
         type="search"
         value={value}
         onChange={(e) => setValue(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") {
+            setValue("");
+            onSearch("");
+            inputRef.current?.blur();
+          }
+        }}
         placeholder={placeholder}
         aria-label="Search aliases"
       />
