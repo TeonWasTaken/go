@@ -64,17 +64,25 @@ export type ValidationResult =
 // Alias format validation
 // ---------------------------------------------------------------------------
 
-const ALIAS_PATTERN = /^[a-z0-9-]+$/;
+const ALIAS_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
+
+const RESERVED_NAMES = new Set(["api", "login"]);
 
 export function validateAlias(alias: string): ValidationResult {
   if (!alias) {
     return { valid: false, error: "Alias is required" };
   }
+  if (RESERVED_NAMES.has(alias)) {
+    return {
+      valid: false,
+      error: "This alias name is reserved and cannot be used",
+    };
+  }
   if (!ALIAS_PATTERN.test(alias)) {
     return {
       valid: false,
       error:
-        "Alias must contain only lowercase alphanumeric characters and hyphens",
+        "Alias must start with a letter or digit and contain only lowercase alphanumeric characters and hyphens",
     };
   }
   return { valid: true };

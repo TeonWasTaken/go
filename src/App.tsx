@@ -1,18 +1,18 @@
 import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useState,
+    createContext,
+    useCallback,
+    useContext,
+    useEffect,
+    useState,
 } from "react";
 import {
-  NavLink,
-  Route,
-  Routes,
-  useLocation,
-  useNavigate,
-  useParams,
-  useSearchParams,
+    NavLink,
+    Route,
+    Routes,
+    useLocation,
+    useNavigate,
+    useParams,
+    useSearchParams,
 } from "react-router-dom";
 import GoLogoDark from "./assets/GoLogo_dark.svg";
 import GoLogoLight from "./assets/GoLogo_light.svg";
@@ -25,10 +25,10 @@ import { useTheme } from "./components/ThemeProvider";
 import { ThemeToggle } from "./components/ThemeToggle";
 import { UserBadge } from "./components/UserBadge";
 import {
-  type AuthConfigResponse,
-  type UserIdentity,
-  fetchCurrentUser,
-  getAuthConfig,
+    type AuthConfigResponse,
+    type UserIdentity,
+    fetchCurrentUser,
+    getAuthConfig,
 } from "./services/api";
 
 export const AuthConfigContext = createContext<AuthConfigResponse | null>(null);
@@ -101,12 +101,12 @@ function App() {
     });
   }, []);
 
-  const isManagePage = location.pathname === "/manage";
+  const isManagePage = location.pathname === "/_/manage";
   const isAppRoute = [
     "/",
-    "/manage",
-    "/interstitial",
-    "/kitchen-sink",
+    "/_/manage",
+    "/_/interstitial",
+    "/_/kitchen-sink",
   ].includes(location.pathname);
   const headerSearchValue = isManagePage ? searchParams.get("q") || "" : "";
 
@@ -115,9 +115,9 @@ function App() {
       // Navigate to manage page with search term on any page (debounced as-you-type)
       navigate(
         term
-          ? `/manage?q=${encodeURIComponent(term)}`
+          ? `/_/manage?q=${encodeURIComponent(term)}`
           : isManagePage
-            ? "/manage"
+            ? "/_/manage"
             : "/",
         {
           replace: true,
@@ -131,7 +131,7 @@ function App() {
     (term: string) => {
       if (!isManagePage) {
         // On landing page (or any non-manage page), navigate to manage with query
-        navigate(term ? `/manage?q=${encodeURIComponent(term)}` : "/manage");
+        navigate(term ? `/_/manage?q=${encodeURIComponent(term)}` : "/_/manage");
       }
       // On manage page, the debounced onSearch already handles filtering
     },
@@ -159,7 +159,7 @@ function App() {
                 placeholder="Search aliases…"
               />
             </div>
-            <NavLink to="/manage" className="app-header__nav-link">
+            <NavLink to="/_/manage" className="app-header__nav-link">
               Manage My Links
             </NavLink>
             <UserBadge />
@@ -169,9 +169,9 @@ function App() {
         <main className="container main-content">
           <Routes>
             <Route path="/" element={<LandingPage />} />
-            <Route path="/manage" element={<ManagePage />} />
-            <Route path="/interstitial" element={<InterstitialPage />} />
-            <Route path="/kitchen-sink" element={<KitchenSinkPage />} />
+            <Route path="/_/manage" element={<ManagePage />} />
+            <Route path="/_/interstitial" element={<InterstitialPage />} />
+            <Route path="/_/kitchen-sink" element={<KitchenSinkPage />} />
             <Route path="/*" element={<AliasRedirect />} />
           </Routes>
         </main>

@@ -13,10 +13,10 @@
  */
 
 import {
-  app,
-  HttpRequest,
-  HttpResponseInit,
-  InvocationContext,
+    app,
+    HttpRequest,
+    HttpResponseInit,
+    InvocationContext,
 } from "@azure/functions";
 import type { AuthStrategy } from "../shared/auth-strategy.js";
 import { getAliasByPartition, updateAlias } from "../shared/cosmos-client.js";
@@ -68,7 +68,7 @@ export function createRedirectHandler(strategy: AuthStrategy) {
       // --- Extract alias from route param ---
       const rawAlias = req.params.alias;
       if (!rawAlias) {
-        return { status: 302, headers: { location: "/" } };
+        return { status: 302, headers: { location: "/_/" } };
       }
       const alias = rawAlias.toLowerCase();
 
@@ -139,7 +139,7 @@ export function createRedirectHandler(strategy: AuthStrategy) {
         return {
           status: 302,
           headers: {
-            location: `/?expired=${encodeURIComponent(alias)}`,
+            location: `/_/?expired=${encodeURIComponent(alias)}`,
           },
         };
       }
@@ -152,7 +152,7 @@ export function createRedirectHandler(strategy: AuthStrategy) {
         return {
           status: 302,
           headers: {
-            location: `/?expired=${encodeURIComponent(alias)}`,
+            location: `/_/?expired=${encodeURIComponent(alias)}`,
           },
         };
       }
@@ -162,7 +162,7 @@ export function createRedirectHandler(strategy: AuthStrategy) {
         return {
           status: 302,
           headers: {
-            location: `/?suggest=${encodeURIComponent(alias)}`,
+            location: `/_/?suggest=${encodeURIComponent(alias)}`,
           },
         };
       }
@@ -181,7 +181,7 @@ export function createRedirectHandler(strategy: AuthStrategy) {
         );
 
         const interstitialUrl =
-          `/interstitial?alias=${encodeURIComponent(alias)}` +
+          `/_/interstitial?alias=${encodeURIComponent(alias)}` +
           `&privateUrl=${encodeURIComponent(privateDestination)}` +
           `&globalUrl=${encodeURIComponent(globalDestination)}`;
 

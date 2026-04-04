@@ -28,8 +28,8 @@ vi.mock("../../src/shared/cosmos-client.js", () => ({
 
 import { createRedirectHandler } from "../../src/functions/redirect.js";
 import {
-  getAliasByPartition,
-  updateAlias,
+    getAliasByPartition,
+    updateAlias,
 } from "../../src/shared/cosmos-client.js";
 
 const mockGetAlias = vi.mocked(getAliasByPartition);
@@ -269,7 +269,7 @@ describe("Property 1: Alias resolution follows private-first precedence", () => 
           const res = await handler(makeRequest(alias), makeContext());
           expect(res.status).toBe(302);
           const location = (res.headers as Record<string, string>).location;
-          expect(location).toContain("/interstitial");
+          expect(location).toContain("/_/interstitial");
           expect(location).toContain("alias=");
           expect(location).toContain("privateUrl=");
           expect(location).toContain("globalUrl=");
@@ -289,7 +289,7 @@ describe("Property 1: Alias resolution follows private-first precedence", () => 
         const res = await handler(makeRequest(alias), makeContext());
         expect(res.status).toBe(302);
         const loc = (res.headers as Record<string, string>).location;
-        expect(loc).toContain(`suggest=${encodeURIComponent(alias)}`);
+        expect(loc).toContain(`/_/?suggest=${encodeURIComponent(alias)}`);
       }),
       { numRuns: 50 },
     );
@@ -310,7 +310,7 @@ describe("Property 1: Alias resolution follows private-first precedence", () => 
           const res = await handler(makeRequest(alias), makeContext());
           expect(res.status).toBe(302);
           const loc = (res.headers as Record<string, string>).location;
-          expect(loc).toContain("suggest=");
+          expect(loc).toContain("/_/?suggest=");
         },
       ),
       { numRuns: 50 },
@@ -479,7 +479,7 @@ describe("Property 4: Expired aliases block redirection", () => {
         const res = await handler(makeRequest(alias), makeContext());
         expect(res.status).toBe(302);
         const loc = (res.headers as Record<string, string>).location;
-        expect(loc).toContain("expired=");
+        expect(loc).toContain("/_/?expired=");
         expect(loc).not.toContain(new URL(destUrl).hostname);
         expect(mockUpdateAlias).not.toHaveBeenCalled();
       }),
@@ -516,7 +516,7 @@ describe("Property 4: Expired aliases block redirection", () => {
           const res = await handler(makeRequest(alias), makeContext());
           expect(res.status).toBe(302);
           const loc = (res.headers as Record<string, string>).location;
-          expect(loc).toContain("expired=");
+          expect(loc).toContain("/_/?expired=");
           expect(loc).not.toContain(new URL(destUrl).hostname);
           expect(mockUpdateAlias).not.toHaveBeenCalled();
         },
@@ -563,7 +563,7 @@ describe("Property 4: Expired aliases block redirection", () => {
           const handler = createRedirectHandler(strategy);
           const res = await handler(makeRequest(alias), makeContext());
           const loc = (res.headers as Record<string, string>).location;
-          expect(loc).toContain("expired=");
+          expect(loc).toContain("/_/?expired=");
           expect(mockUpdateAlias).not.toHaveBeenCalled();
         },
       ),
@@ -658,6 +658,114 @@ describe("Property 5: Inactivity expiry resets on access", () => {
         },
       ),
       { numRuns: 50 },
+    );
+  });
+});
+
+// Feature: route-prefix-namespacing, Property 5: Redirect API fallback URLs use /_/ base path
+describe("Property 5: Redirect API fallback URLs use /_/ base path", () => {
+  /**
+   * Validates: Requirements 4.3, 4.4, 8.1, 8.2, 8.3
+   *
+   * For any alias name, when the redirect handler produces a fallback response
+   * (interstitial conflict, suggest for not-found, or expired), the location
+   * header should start with `/_/`.
+   */
+
+  it("suggest redirect starts with /_/ when alias not found", async () => {
+    await fc.assert(
+      fc.asyncProperty(aliasArb, emailArb, async (alias, email) => {
+        resetMocks(email);
+        const strategy = makeMockStrategy(email);
+
+        mockGetAlias.mockResolvedValue(undefined);
+
+        const handler = createRedirectHandler(strategy);
+        const res = await handler(makeRequest(alias), makeContext());
+        expect(res.status).toBe(302);
+        const loc = (res.headers as Record<string, string>).location;
+        expect(loc).toMatch(/^\/_\//);
+        expect(loc).toContain(`/_/?suggest=${encodeURIComponent(alias)}`);
+      }),
+      { numRuns: 100 },
+    );
+  });
+
+  it("expired redirect starts with /_/ when alias is expired", async () => {
+    await fc.assert(
+      fc.asyncProperty(
+        aliasArb,
+        emailArb,
+        destinationUrlArb,
+        async (alias, email, destUrl) => {
+          resetMocks(email);
+          const strategy = makeMockStrategy(email);
+
+          const expired = makeAlias({
+            id: alias,
+            alias,
+            destination_url: destUrl,
+            expiry_status: "expired",
+            expired_at: new Date(Date.now() - 86400_000).toISOString(),
+          });
+
+          mockGetAlias.mockImplementation(async (_a, id) => {
+            if (id === alias) return expired;
+            return undefined;
+          });
+
+          const handler = createRedirectHandler(strategy);
+          const res = await handler(makeRequest(alias), makeContext());
+          expect(res.status).toBe(302);
+          const loc = (res.headers as Record<string, string>).location;
+          expect(loc).toMatch(/^\/_\//);
+          expect(loc).toContain(`/_/?expired=${encodeURIComponent(alias)}`);
+        },
+      ),
+      { numRuns: 100 },
+    );
+  });
+
+  it("interstitial redirect starts with /_/ when both private and global exist", async () => {
+    await fc.assert(
+      fc.asyncProperty(
+        aliasArb,
+        emailArb,
+        destinationUrlArb,
+        destinationUrlArb,
+        async (alias, email, privUrl, globalUrl) => {
+          resetMocks(email);
+          const strategy = makeMockStrategy(email);
+
+          const priv = makeAlias({
+            id: `${alias}:${email}`,
+            alias,
+            is_private: true,
+            destination_url: privUrl,
+            created_by: email,
+          });
+          const global = makeAlias({
+            id: alias,
+            alias,
+            is_private: false,
+            destination_url: globalUrl,
+          });
+
+          mockGetAlias.mockImplementation(async (_a, id) => {
+            if (id === `${alias}:${email}`) return priv;
+            if (id === alias) return global;
+            return undefined;
+          });
+
+          const handler = createRedirectHandler(strategy);
+          const res = await handler(makeRequest(alias), makeContext());
+          expect(res.status).toBe(302);
+          const loc = (res.headers as Record<string, string>).location;
+          expect(loc).toMatch(/^\/_\//);
+          expect(loc).toContain("/_/interstitial?");
+        },
+      ),
+      { numRuns: 100 },
     );
   });
 });

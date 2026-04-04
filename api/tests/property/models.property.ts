@@ -1,29 +1,38 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import {
-  generateAliasId,
-  validateAlias,
-  validateCreateAliasRequest,
-  validateDestinationUrl,
-  validateExpiryPolicy,
-  validateFixedPolicyConfig,
-  validateUpdateAliasRequest,
-  type AliasRecord,
+    generateAliasId,
+    validateAlias,
+    validateCreateAliasRequest,
+    validateDestinationUrl,
+    validateExpiryPolicy,
+    validateFixedPolicyConfig,
+    validateUpdateAliasRequest,
+    type AliasRecord,
 } from "../../src/shared/models.js";
 
-const validAliasArb = fc.stringOf(
-  fc.mapToConstant(
-    { num: 26, build: (v: number) => String.fromCharCode(97 + v) },
-    { num: 10, build: (v: number) => String.fromCharCode(48 + v) },
-    { num: 1, build: () => "-" },
-  ),
-  { minLength: 1, maxLength: 30 },
-);
+const validAliasArb = fc
+  .tuple(
+    fc.mapToConstant(
+      { num: 26, build: (v: number) => String.fromCharCode(97 + v) },
+      { num: 10, build: (v: number) => String.fromCharCode(48 + v) },
+    ),
+    fc.stringOf(
+      fc.mapToConstant(
+        { num: 26, build: (v: number) => String.fromCharCode(97 + v) },
+        { num: 10, build: (v: number) => String.fromCharCode(48 + v) },
+        { num: 1, build: () => "-" },
+      ),
+      { minLength: 0, maxLength: 29 },
+    ),
+  )
+  .map(([first, rest]) => first + rest)
+  .filter((s) => s !== "api" && s !== "login");
 const invalidAliasArb = fc.oneof(
   fc.constant(""),
   fc
     .stringOf(fc.char(), { minLength: 1 })
-    .filter((s) => !/^[a-z0-9-]+$/.test(s)),
+    .filter((s) => !/^[a-z0-9][a-z0-9-]*$/.test(s)),
 );
 const validUrlArb = fc.webUrl({
   withFragments: false,
@@ -361,6 +370,109 @@ describe("Property 11: Fixed expiry policy accepts valid configurations only", (
           ).toBe(false);
         },
       ),
+      { numRuns: 100 },
+    );
+  });
+});
+
+// Feature: route-prefix-namespacing, Property 6: Alias validation enforces alphanumeric start and valid characters
+describe("Property 6: Alias validation enforces alphanumeric start and valid characters", () => {
+  /**
+   * Validates: Requirements 5.1, 5.2, 5.3, 5.4
+   */
+
+  const validCharTailArb = fc.stringOf(
+    fc.mapToConstant(
+      { num: 26, build: (v: number) => String.fromCharCode(97 + v) },
+      { num: 10, build: (v: number) => String.fromCharCode(48 + v) },
+      { num: 1, build: () => "-" },
+    ),
+    { minLength: 0, maxLength: 29 },
+  );
+
+  const alphanumericStartArb = fc.mapToConstant(
+    { num: 26, build: (v: number) => String.fromCharCode(97 + v) },
+    { num: 10, build: (v: number) => String.fromCharCode(48 + v) },
+  );
+
+  const nonAlphanumericStartArb = fc.oneof(
+    fc.constant("-"),
+    fc.constant("_"),
+    fc.constant("."),
+    fc.char().filter((c) => !/[a-z0-9]/.test(c)),
+  );
+
+  it("accepts strings starting with alphanumeric and containing only valid characters (non-reserved)", () => {
+    fc.assert(
+      fc.property(
+        alphanumericStartArb,
+        validCharTailArb,
+        (first, rest) => {
+          const alias = first + rest;
+          if (alias === "api" || alias === "login") return; // skip reserved
+          const result = validateAlias(alias);
+          expect(result).toEqual({ valid: true });
+        },
+      ),
+      { numRuns: 100 },
+    );
+  });
+
+  it("rejects strings starting with a non-alphanumeric character", () => {
+    fc.assert(
+      fc.property(
+        nonAlphanumericStartArb,
+        validCharTailArb,
+        (first, rest) => {
+          const alias = first + rest;
+          const result = validateAlias(alias);
+          expect(result.valid).toBe(false);
+          if (!result.valid) {
+            expect(result.error).toBe(
+              "Alias must start with a letter or digit and contain only lowercase alphanumeric characters and hyphens",
+            );
+          }
+        },
+      ),
+      { numRuns: 100 },
+    );
+  });
+
+  it("rejects strings containing invalid characters", () => {
+    const invalidCharArb = fc.char().filter((c) => !/[a-z0-9-]/.test(c));
+    fc.assert(
+      fc.property(
+        alphanumericStartArb,
+        invalidCharArb,
+        validCharTailArb,
+        (first, bad, rest) => {
+          const alias = first + bad + rest;
+          const result = validateAlias(alias);
+          expect(result.valid).toBe(false);
+        },
+      ),
+      { numRuns: 100 },
+    );
+  });
+});
+
+// Feature: route-prefix-namespacing, Property 7: Reserved alias names are rejected with specific error
+describe("Property 7: Reserved alias names are rejected with specific error", () => {
+  /**
+   * Validates: Requirements 6.1, 6.4
+   */
+
+  const reservedNameArb = fc.constantFrom("api", "login");
+
+  it("rejects reserved names with the correct error message", () => {
+    fc.assert(
+      fc.property(reservedNameArb, (alias) => {
+        const result = validateAlias(alias);
+        expect(result).toEqual({
+          valid: false,
+          error: "This alias name is reserved and cannot be used",
+        });
+      }),
       { numRuns: 100 },
     );
   });

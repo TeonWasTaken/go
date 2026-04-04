@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
-  generateAliasId,
-  validateAlias,
-  validateCreateAliasRequest,
-  validateDestinationUrl,
-  validateExpiryPolicy,
-  validateFixedPolicyConfig,
-  validateUpdateAliasRequest,
+    generateAliasId,
+    validateAlias,
+    validateCreateAliasRequest,
+    validateDestinationUrl,
+    validateExpiryPolicy,
+    validateFixedPolicyConfig,
+    validateUpdateAliasRequest,
 } from "../../src/shared/models.js";
 
 describe("validateAlias", () => {
@@ -32,6 +32,52 @@ describe("validateAlias", () => {
     expect(validateAlias("my link").valid).toBe(false);
     expect(validateAlias("my.link").valid).toBe(false);
     expect(validateAlias("my/link").valid).toBe(false);
+  });
+
+  it("rejects reserved names with specific error", () => {
+    const apiResult = validateAlias("api");
+    expect(apiResult).toEqual({
+      valid: false,
+      error: "This alias name is reserved and cannot be used",
+    });
+    const loginResult = validateAlias("login");
+    expect(loginResult).toEqual({
+      valid: false,
+      error: "This alias name is reserved and cannot be used",
+    });
+  });
+
+  it("rejects aliases starting with underscore", () => {
+    const result = validateAlias("_admin");
+    expect(result).toEqual({
+      valid: false,
+      error:
+        "Alias must start with a letter or digit and contain only lowercase alphanumeric characters and hyphens",
+    });
+  });
+
+  it("rejects aliases starting with period", () => {
+    const result = validateAlias(".hidden");
+    expect(result).toEqual({
+      valid: false,
+      error:
+        "Alias must start with a letter or digit and contain only lowercase alphanumeric characters and hyphens",
+    });
+  });
+
+  it("rejects aliases starting with hyphen", () => {
+    const result = validateAlias("-dashed");
+    expect(result).toEqual({
+      valid: false,
+      error:
+        "Alias must start with a letter or digit and contain only lowercase alphanumeric characters and hyphens",
+    });
+  });
+
+  it("accepts aliases starting with a digit", () => {
+    expect(validateAlias("1link")).toEqual({ valid: true });
+    expect(validateAlias("42")).toEqual({ valid: true });
+    expect(validateAlias("0-start")).toEqual({ valid: true });
   });
 });
 

@@ -29,6 +29,134 @@ const providerSubsetArb = fc
 /** Arbitrary single known provider. */
 const singleProviderArb = fc.constantFrom(...KNOWN_PROVIDERS);
 
+// ── Generator: arbitrary auth mode with matching providers ──────────
+
+type AuthMode = "corporate" | "public" | "dev";
+
+/** Arbitrary auth mode with a valid provider list for that mode. */
+const authModeWithProvidersArb: fc.Arbitrary<[AuthMode, string[]]> = fc.oneof(
+  fc.constant(["corporate", ["aad"]] as [AuthMode, string[]]),
+  providerSubsetArb.map(
+    (providers) => ["public", providers] as [AuthMode, string[]],
+  ),
+  fc.constant(["dev", ["aad"]] as [AuthMode, string[]]),
+);
+
+// ── Feature: route-prefix-namespacing, Property 1: Generated config app routes use /_/ prefix ──
+
+describe("Property 1: Generated config app routes use /_/ prefix", () => {
+  /**
+   * **Validates: Requirements 1.1, 2.1**
+   *
+   * For any auth mode and valid provider list, calling generateSwaConfig()
+   * should produce a routes array where every SPA page rewrite route
+   * (manage, interstitial, kitchen-sink) has a /_/ prefix and rewrites
+   * to /index.html.
+   */
+  it("all SPA page rewrite routes have /_/ prefix and rewrite to /index.html", () => {
+    fc.assert(
+      fc.property(authModeWithProvidersArb, ([mode, providers]) => {
+        const config = generateSwaConfig(mode, providers);
+        const appPages = ["/_/manage", "/_/interstitial", "/_/kitchen-sink"];
+
+        for (const page of appPages) {
+          const route = config.routes.find((r) => r.route === page);
+          expect(route).toBeDefined();
+          expect(route!.rewrite).toBe("/index.html");
+        }
+      }),
+      { numRuns: 100 },
+    );
+  });
+});
+
+// ── Feature: route-prefix-namespacing, Property 2: Alias catch-all appears after all prefixed app routes ──
+
+describe("Property 2: Alias catch-all appears after all prefixed app routes", () => {
+  /**
+   * **Validates: Requirements 1.2, 2.2**
+   *
+   * For any auth mode and provider list, in the routes array produced by
+   * generateSwaConfig(), the index of the /{alias} rewrite rule should be
+   * greater than the index of every /_/-prefixed route.
+   */
+  it("/{alias} index is greater than all /_/-prefixed route indices", () => {
+    fc.assert(
+      fc.property(authModeWithProvidersArb, ([mode, providers]) => {
+        const config = generateSwaConfig(mode, providers);
+        const aliasIndex = config.routes.findIndex(
+          (r) => r.route === "/{alias}",
+        );
+        expect(aliasIndex).toBeGreaterThan(-1);
+
+        const prefixedIndices = config.routes
+          .map((r, i) => (r.route.startsWith("/_/") ? i : -1))
+          .filter((i) => i >= 0);
+
+        for (const idx of prefixedIndices) {
+          expect(aliasIndex).toBeGreaterThan(idx);
+        }
+      }),
+      { numRuns: 100 },
+    );
+  });
+});
+
+// ── Feature: route-prefix-namespacing, Property 3: navigationFallback excludes /_/* ──
+
+describe("Property 3: navigationFallback excludes /_/*", () => {
+  /**
+   * **Validates: Requirements 2.3**
+   *
+   * For any auth mode and provider list, the navigationFallback.exclude
+   * array produced by generateSwaConfig() should contain /_/* alongside
+   * /api/* and /.auth/*.
+   */
+  it("navigationFallback.exclude contains /_/*, /api/*, and /.auth/*", () => {
+    fc.assert(
+      fc.property(authModeWithProvidersArb, ([mode, providers]) => {
+        const config = generateSwaConfig(mode, providers);
+        const exclude = config.navigationFallback.exclude;
+
+        expect(exclude).toContain("/_/*");
+        expect(exclude).toContain("/api/*");
+        expect(exclude).toContain("/.auth/*");
+      }),
+      { numRuns: 100 },
+    );
+  });
+});
+
+// ── Feature: route-prefix-namespacing, Property 4: Login route remains unprefixed ──
+
+describe("Property 4: Login route remains unprefixed", () => {
+  /**
+   * **Validates: Requirements 1.4**
+   *
+   * For any auth mode and provider list, the generated config should
+   * contain a /login route (not /_/login) that redirects to a
+   * /.auth/login/ provider endpoint.
+   */
+  it("/login route exists without /_/ prefix and redirects to /.auth/login/", () => {
+    fc.assert(
+      fc.property(authModeWithProvidersArb, ([mode, providers]) => {
+        const config = generateSwaConfig(mode, providers);
+        const loginRoute = config.routes.find((r) => r.route === "/login");
+
+        expect(loginRoute).toBeDefined();
+        expect(loginRoute!.redirect).toMatch(/^\/\.auth\/login\//);
+
+        // Ensure no /_/login route exists
+        const prefixedLogin = config.routes.find(
+          (r) => r.route === "/_/login",
+        );
+        expect(prefixedLogin).toBeUndefined();
+      }),
+      { numRuns: 100 },
+    );
+  });
+});
+
 // ── Feature: multi-tenant-auth-modes, Property 12: SWA config provider enablement ──
 
 describe("Property 12: SWA config provider enablement", () => {

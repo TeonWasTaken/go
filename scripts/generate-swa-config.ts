@@ -53,7 +53,7 @@ const VALID_MODES: AuthMode[] = ["corporate", "public", "dev"];
 function baseNavigationFallback() {
   return {
     rewrite: "/index.html",
-    exclude: ["/api/*", "/.auth/*"],
+    exclude: ["/api/*", "/.auth/*", "/_/*"],
   };
 }
 
@@ -82,9 +82,9 @@ function blockProvider(provider: string): SwaRoute {
 /** Common page rewrite routes (interstitial, kitchen-sink, manage). */
 function pageRewrites(): SwaRoute[] {
   return [
-    { route: "/interstitial", rewrite: "/index.html" },
-    { route: "/kitchen-sink", rewrite: "/index.html" },
-    { route: "/manage", rewrite: "/index.html" },
+    { route: "/_/interstitial", rewrite: "/index.html" },
+    { route: "/_/kitchen-sink", rewrite: "/index.html" },
+    { route: "/_/manage", rewrite: "/index.html" },
   ];
 }
 

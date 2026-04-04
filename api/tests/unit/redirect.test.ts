@@ -22,8 +22,8 @@ vi.mock("../../src/shared/cosmos-client.js", () => ({
 
 import { createRedirectHandler } from "../../src/functions/redirect.js";
 import {
-  getAliasByPartition,
-  updateAlias,
+    getAliasByPartition,
+    updateAlias,
 } from "../../src/shared/cosmos-client.js";
 
 const mockGetAlias = vi.mocked(getAliasByPartition);
@@ -130,7 +130,7 @@ describe("redirect handler", () => {
     expect(res.status).toBe(302);
     expect(res.headers).toHaveProperty("location");
     const location = (res.headers as Record<string, string>).location;
-    expect(location).toContain("suggest=unknown");
+    expect(location).toContain("/_/?suggest=unknown");
   });
 
   it("302 redirects to global alias destination when only global exists", async () => {
@@ -186,7 +186,7 @@ describe("redirect handler", () => {
     const res = await handler(makeRequest("docs"), makeContext());
     expect(res.status).toBe(302);
     const location = (res.headers as any).location as string;
-    expect(location).toContain("/interstitial");
+    expect(location).toContain("/_/interstitial");
     expect(location).toContain("privateUrl=");
     expect(location).toContain("globalUrl=");
     expect(location).toContain("alias=docs");
@@ -227,7 +227,7 @@ describe("redirect handler", () => {
     const handler = createRedirectHandler(strategy);
     const res = await handler(makeRequest("test"), makeContext());
     expect(res.status).toBe(302);
-    expect((res.headers as any).location).toContain("expired=test");
+    expect((res.headers as any).location).toContain("/_/?expired=test");
   });
 
   it("resets expires_at for inactivity policy on access", async () => {
@@ -299,7 +299,7 @@ describe("redirect handler", () => {
     const handler = createRedirectHandler(strategy);
     const res = await handler(req, makeContext());
     expect(res.status).toBe(302);
-    expect((res.headers as any).location).toBe("/");
+    expect((res.headers as any).location).toBe("/_/");
   });
 });
 
@@ -380,7 +380,7 @@ describe("redirect handler — redirectRequiresAuth branching", () => {
     const res = await handler(makeRequest("secret"), makeContext());
     expect(res.status).toBe(302);
     const location = (res.headers as any).location as string;
-    expect(location).toContain("suggest=secret");
+    expect(location).toContain("/_/?suggest=secret");
   });
 
   it("resolves both private and global when redirectRequiresAuth=false and identity present", async () => {
@@ -409,7 +409,7 @@ describe("redirect handler — redirectRequiresAuth branching", () => {
     const res = await handler(makeRequest("docs"), makeContext());
     expect(res.status).toBe(302);
     const location = (res.headers as any).location as string;
-    expect(location).toContain("/interstitial");
+    expect(location).toContain("/_/interstitial");
     // Should have looked up both
     expect(mockGetAlias).toHaveBeenCalledWith("docs", "docs:alice@example.com");
     expect(mockGetAlias).toHaveBeenCalledWith("docs", "docs");

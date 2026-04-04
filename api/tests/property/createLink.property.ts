@@ -9,8 +9,8 @@ import type { HttpRequest, InvocationContext } from "@azure/functions";
 import fc from "fast-check";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type {
-  AliasRecord,
-  CreateAliasRequest,
+    AliasRecord,
+    CreateAliasRequest,
 } from "../../src/shared/models.js";
 
 // ---------------------------------------------------------------------------
@@ -29,8 +29,8 @@ vi.mock("../../src/shared/cosmos-client.js", () => ({
 import { createCreateLinkHandler } from "../../src/functions/createLink.js";
 import type { AuthStrategy } from "../../src/shared/auth-strategy.js";
 import {
-  createAlias,
-  getAliasByPartition,
+    createAlias,
+    getAliasByPartition,
 } from "../../src/shared/cosmos-client.js";
 
 const mockCreateAlias = vi.mocked(createAlias);
@@ -40,13 +40,17 @@ const mockGetAlias = vi.mocked(getAliasByPartition);
 // Generators
 // ---------------------------------------------------------------------------
 
-/** Valid lowercase alias names */
+/** Valid lowercase alias names (must start with alphanumeric, not reserved) */
 const aliasArb = fc
-  .stringOf(fc.constantFrom(..."abcdefghijklmnopqrstuvwxyz0123456789-"), {
-    minLength: 1,
-    maxLength: 30,
-  })
-  .filter((s) => /^[a-z0-9-]+$/.test(s));
+  .tuple(
+    fc.constantFrom(..."abcdefghijklmnopqrstuvwxyz0123456789"),
+    fc.stringOf(fc.constantFrom(..."abcdefghijklmnopqrstuvwxyz0123456789-"), {
+      minLength: 0,
+      maxLength: 29,
+    }),
+  )
+  .map(([first, rest]) => first + rest)
+  .filter((s) => s !== "api" && s !== "login");
 
 /** Email-like strings */
 const emailArb = fc

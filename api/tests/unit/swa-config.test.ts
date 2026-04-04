@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
-  generateSwaConfig,
-  parseProviders,
+    generateSwaConfig,
+    parseProviders,
 } from "../../../scripts/generate-swa-config.js";
 
 // ── Helper to find a route by path ──────────────────────────────────
@@ -60,6 +60,7 @@ describe("generateSwaConfig — corporate", () => {
   it("includes navigationFallback", () => {
     expect(config.navigationFallback.rewrite).toBe("/index.html");
     expect(config.navigationFallback.exclude).toContain("/api/*");
+    expect(config.navigationFallback.exclude).toContain("/_/*");
   });
 
   it("includes platform config", () => {

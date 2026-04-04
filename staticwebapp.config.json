@@ -34,15 +34,15 @@
       ]
     },
     {
-      "route": "/interstitial",
+      "route": "/_/interstitial",
       "rewrite": "/index.html"
     },
     {
-      "route": "/kitchen-sink",
+      "route": "/_/kitchen-sink",
       "rewrite": "/index.html"
     },
     {
-      "route": "/manage",
+      "route": "/_/manage",
       "rewrite": "/index.html"
     },
     {
@@ -66,7 +66,8 @@
     "rewrite": "/index.html",
     "exclude": [
       "/api/*",
-      "/.auth/*"
+      "/.auth/*",
+      "/_/*"
     ]
   },
   "platform": {
