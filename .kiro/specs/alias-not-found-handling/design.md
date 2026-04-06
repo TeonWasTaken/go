@@ -2,12 +2,12 @@
 
 ## Overview
 
-When a user navigates to a non-existent alias, the redirect API (`api/src/functions/redirect.ts`) returns a 302 to `/_/?suggest=<alias>`. However, the SWA config (`staticwebapp.config.json`) has no route for `/_/` and the `navigationFallback` explicitly excludes `/_/*`, so Azure serves its default 404 page. The fix requires three coordinated changes: (1) add an SWA route for `/_/` that rewrites to `index.html`, (2) add a React route and `NotFoundPage` component for unauthenticated users, and (3) read the `suggest` query param on the landing/not-found page to pre-fill the create dialog for authenticated users. The `generate-swa-config.ts` script must also be updated so regenerated configs include the new route.
+When a user navigates to a non-existent alias, the redirect API (`api/src/functions/redirect.ts`) returns a 302 to `/_/not-found?suggest=<alias>`. However, the SWA config (`staticwebapp.config.json`) has no route for `/_/not-found` and the `navigationFallback` explicitly excludes `/_/*`, so Azure serves its default 404 page. The fix requires three coordinated changes: (1) add an SWA route for `/_/not-found` that rewrites to `index.html`, (2) add a React route and `NotFoundPage` component, and (3) read the `suggest` query param on the not-found page to pre-fill the create dialog for authenticated users. The `generate-swa-config.ts` script must also be updated so regenerated configs include the new route.
 
 ## Glossary
 
-- **Bug_Condition (C)**: A navigation to a non-existent alias that results in a redirect to `/_/?suggest=<alias>`, which the SWA platform cannot serve
-- **Property (P)**: The `/_/?suggest=<alias>` path is served by the frontend, showing a not-found page (unauthenticated) or pre-filling the create dialog (authenticated)
+- **Bug_Condition (C)**: A navigation to a non-existent alias that results in a redirect to `/_/not-found?suggest=<alias>`, which the SWA platform cannot serve
+- **Property (P)**: The `/_/not-found?suggest=<alias>` path is served by the frontend, showing a not-found page with an option to create the alias
 - **Preservation**: All existing redirect, interstitial, manage, and landing page behaviors remain unchanged
 - **redirect function**: The Azure Function in `api/src/functions/redirect.ts` that resolves aliases and returns 302 redirects
 - **SWA config**: `staticwebapp.config.json` — the Azure Static Web Apps routing configuration
@@ -18,7 +18,7 @@ When a user navigates to a non-existent alias, the redirect API (`api/src/functi
 
 ### Bug Condition
 
-The bug manifests when a user navigates to any alias path (`/<alias>`) where the alias does not exist in the database. The redirect API correctly identifies the missing alias and redirects to `/_/?suggest=<alias>`, but the SWA platform has no route to serve this path. The `navigationFallback` excludes `/_/*`, and no explicit route exists for `/_/`.
+The bug manifests when a user navigates to any alias path (`/<alias>`) where the alias does not exist in the database. The redirect API correctly identifies the missing alias and redirects to `/_/not-found?suggest=<alias>`, but the SWA platform has no route to serve this path. The `navigationFallback` excludes `/_/*`, and no explicit route exists for `/_/not-found`.
 
 **Formal Specification:**
 ```
@@ -29,16 +29,16 @@ FUNCTION isBugCondition(input)
   alias := extractAlias(input.path)
   RETURN alias IS NOT NULL
          AND NOT input.aliasExists
-         AND redirectTarget(alias) == "/_/?suggest=<alias>"
-         AND NOT swaCanServe("/_/")
+         AND redirectTarget(alias) == "/_/not-found?suggest=<alias>"
+         AND NOT swaCanServe("/_/not-found")
 END FUNCTION
 ```
 
 ### Examples
 
-- User navigates to `/my-cool-link` where `my-cool-link` does not exist → API redirects to `/_/?suggest=my-cool-link` → Azure 404 page (expected: friendly not-found page or create dialog)
-- User navigates to `/nonexistent` while unauthenticated → Azure 404 page (expected: "Sorry, this link does not exist" page)
-- User navigates to `/claim-me` while authenticated → Azure 404 page (expected: create dialog pre-filled with alias `claim-me`)
+- User navigates to `/my-cool-link` where `my-cool-link` does not exist → API redirects to `/_/not-found?suggest=my-cool-link` → Azure 404 page (expected: friendly not-found page or create dialog)
+- User navigates to `/nonexistent` while unauthenticated → Azure 404 page (expected: "This alias is available" page)
+- User navigates to `/claim-me` while authenticated → Azure 404 page (expected: not-found page with "Create it now" button pre-filling alias `claim-me`)
 - User navigates to `/existing-alias` where alias exists → 302 to destination URL (not affected, works correctly)
 
 ## Expected Behavior
@@ -66,11 +66,11 @@ All inputs that do NOT involve navigating to a non-existent alias are completely
 
 Based on the bug description, the root cause is a missing SWA route combined with a missing React route:
 
-1. **Missing SWA Route for `/_/`**: The `staticwebapp.config.json` has explicit routes for `/_/interstitial`, `/_/kitchen-sink`, and `/_/manage`, but no route for `/_/` itself. The `navigationFallback` excludes `/_/*`, so `/_/` is not caught by the fallback either. This means the SWA platform returns a 404 for `/_/?suggest=<alias>`.
+1. **Missing SWA Route for `/_/not-found`**: The `staticwebapp.config.json` has explicit routes for `/_/interstitial`, `/_/kitchen-sink`, and `/_/manage`, but no route for `/_/not-found`. The `navigationFallback` excludes `/_/*`, so `/_/not-found` is not caught by the fallback either. This means the SWA platform returns a 404 for `/_/not-found?suggest=<alias>`.
 
-2. **Missing React Route for `/_/`**: Even if the SWA route existed, the React Router in `App.tsx` has no `<Route>` for `/_/`. The `Routes` component has `/`, `/_/manage`, `/_/interstitial`, `/_/kitchen-sink`, and a catch-all `/*`. The catch-all would treat `_/` as an alias and redirect back to the API, creating a loop.
+2. **Missing React Route for `/_/not-found`**: Even if the SWA route existed, the React Router in `App.tsx` has no `<Route>` for `/_/not-found`. The `Routes` component has `/`, `/_/manage`, `/_/interstitial`, `/_/kitchen-sink`, and a catch-all `/*`. The catch-all would treat `_/not-found` as an alias and redirect back to the API, creating a loop.
 
-3. **generate-swa-config.ts Not Updated**: The `pageRewrites()` function in the config generator only emits routes for `/_/interstitial`, `/_/kitchen-sink`, and `/_/manage`. Any regeneration of the config would omit the new `/_/` route.
+3. **generate-swa-config.ts Not Updated**: The `pageRewrites()` function in the config generator only emits routes for `/_/interstitial`, `/_/kitchen-sink`, and `/_/manage`. Any regeneration of the config would omit the new `/_/not-found` route.
 
 4. **No Frontend Component for Not-Found**: There is no `NotFoundPage` component that reads the `suggest` query param and renders appropriate UI based on auth state.
 
@@ -78,7 +78,7 @@ Based on the bug description, the root cause is a missing SWA route combined wit
 
 Property 1: Bug Condition - Non-existent alias shows frontend page
 
-_For any_ navigation to a non-existent alias where the redirect API returns a 302 to `/_/?suggest=<alias>`, the SWA platform SHALL serve `index.html` and the React app SHALL render a meaningful page: a not-found page for unauthenticated users, or the create dialog pre-filled with the alias for authenticated users.
+_For any_ navigation to a non-existent alias where the redirect API returns a 302 to `/_/not-found?suggest=<alias>`, the SWA platform SHALL serve `index.html` and the React app SHALL render a meaningful page: a not-found page for unauthenticated users, or the not-found page with a "Create it now" button pre-filled with the alias for authenticated users.
 
 **Validates: Requirements 2.1, 2.2, 2.3**
 
@@ -97,27 +97,27 @@ Assuming our root cause analysis is correct:
 **File**: `staticwebapp.config.json`
 
 **Specific Changes**:
-1. **Add `/_/` route**: Add a route entry `{ "route": "/_/", "rewrite": "/index.html" }` before the existing `/_/interstitial` route. This allows the SWA platform to serve the React app for the `/_/?suggest=<alias>` redirect target.
+1. **Add `/_/not-found` route**: Add a route entry `{ "route": "/_/not-found", "rewrite": "/index.html" }` before the existing `/_/interstitial` route. This allows the SWA platform to serve the React app for the `/_/not-found?suggest=<alias>` redirect target.
 
 **File**: `scripts/generate-swa-config.ts`
 
 **Function**: `pageRewrites()`
 
 **Specific Changes**:
-2. **Add `/_/` to generated routes**: Add `{ route: "/_/", rewrite: "/index.html" }` to the `pageRewrites()` function so that all generated SWA configs (corporate, public, dev) include the new route.
+2. **Add `/_/not-found` to generated routes**: Add `{ route: "/_/not-found", rewrite: "/index.html" }` to the `pageRewrites()` function so that all generated SWA configs (corporate, public, dev) include the new route.
 
 **File**: `src/App.tsx`
 
 **Specific Changes**:
-3. **Add React route for `/_/`**: Add a `<Route path="/_/" element={<NotFoundPage />} />` entry in the `<Routes>` block. This route renders the new `NotFoundPage` component. Add `/_/` to the `isAppRoute` array so the header is shown.
+3. **Add React route for `/_/not-found`**: Add a `<Route path="/_/not-found" element={<NotFoundPage />} />` entry in the `<Routes>` block. This route renders the new `NotFoundPage` component. Add `/_/not-found` to the `isAppRoute` array so the header is shown.
 
 **File**: `src/components/NotFoundPage.tsx` (new file)
 
 **Specific Changes**:
 4. **Create NotFoundPage component**: Build a new component that:
    - Reads the `suggest` query param from the URL
-   - If the user is authenticated: auto-opens the `CreateEditModal` with the alias pre-filled
-   - If the user is unauthenticated: shows a friendly "this link does not exist" message with the alias name, and a prompt to sign in to create it
+   - If the user is authenticated: shows a "This alias is available" message with a "Create it now" button that opens `CreateEditModal` with the alias pre-filled
+   - If the user is unauthenticated: shows the same "This alias is available" message with a "Create it now" button that redirects to sign-in first
    - If no `suggest` param is present: shows a generic not-found message
 
 5. **Integrate with CreateEditModal**: Pass a pre-filled `record` prop (with `alias` set) to `CreateEditModal` when the user is authenticated and a `suggest` param is present. The modal already supports `record: null` for create mode, so we pass `null` but set initial alias state via a new optional `initialAlias` prop or by navigating to the manage page with appropriate state.
@@ -200,8 +200,8 @@ END FOR
 
 ### Property-Based Tests
 
-- Generate random alias strings and verify the SWA config routes `/_/?suggest=<alias>` to `index.html` for all of them
-- Generate random SWA config modes (corporate, public, dev) and verify all generated configs include the `/_/` route
+- Generate random alias strings and verify the SWA config routes `/_/not-found?suggest=<alias>` to `index.html` for all of them
+- Generate random SWA config modes (corporate, public, dev) and verify all generated configs include the `/_/not-found` route
 - Generate random existing route paths and verify none are affected by the addition of the `/_/` route
 
 ### Integration Tests

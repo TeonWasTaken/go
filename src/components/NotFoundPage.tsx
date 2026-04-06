@@ -11,7 +11,7 @@ import { CreateEditModal } from "./CreateEditModal";
  * Both authenticated and unauthenticated users see the same "available" message.
  * A "Create it now" button opens the create dialog (authenticated) or
  * redirects to sign-in first (unauthenticated), after which the user
- * returns here and the dialog auto-opens.
+ * can click "Create it now" again to open the dialog.
  */
 export function NotFoundPage() {
   const [params] = useSearchParams();
@@ -46,8 +46,8 @@ export function NotFoundPage() {
     if (isAuthenticated) {
       setShowCreate(true);
     } else if (authConfig?.loginUrl) {
-      // Redirect to sign-in; SWA's post_login_redirect_uri=.referrer
-      // brings the user back here, and the useEffect auto-opens the dialog.
+      // Redirect to sign-in; after authenticating the user returns here
+      // and can click "Create it now" again to open the dialog.
       window.location.href = authConfig.loginUrl;
     }
   };
