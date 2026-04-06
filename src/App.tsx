@@ -150,18 +150,12 @@ function App() {
     (term: string) => {
       if (location.pathname === "/") {
         setLandingSearchTerm(term);
-      } else {
-        navigate(
-          term
-            ? `/_/manage?q=${encodeURIComponent(term)}`
-            : isManagePage
-              ? "/_/manage"
-              : "/",
-          {
-            replace: true,
-          },
-        );
+      } else if (term) {
+        navigate(`/_/manage?q=${encodeURIComponent(term)}`, { replace: true });
+      } else if (isManagePage) {
+        navigate("/_/manage", { replace: true });
       }
+      // Empty term on non-landing, non-manage pages: do nothing (stay on current page)
     },
     [location.pathname, isManagePage, navigate],
   );
