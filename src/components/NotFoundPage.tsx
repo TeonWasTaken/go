@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useAliasPrefix, useAuthConfig, useUser } from "../App";
 import type { AliasRecord } from "../services/api";
@@ -23,7 +23,14 @@ export function NotFoundPage() {
   const isAuthenticated = !!user;
   const isPublicMode = authConfig?.mode === "public";
 
-  const [showCreate, setShowCreate] = useState(isAuthenticated && !!suggestedAlias);
+  const [showCreate, setShowCreate] = useState(false);
+
+  // Open the create dialog once auth loads and we have a suggested alias
+  useEffect(() => {
+    if (isAuthenticated && suggestedAlias) {
+      setShowCreate(true);
+    }
+  }, [isAuthenticated, suggestedAlias]);
 
   const handleSaved = (_record: AliasRecord) => {
     setShowCreate(false);
