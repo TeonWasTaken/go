@@ -68,7 +68,7 @@ export function createRedirectHandler(strategy: AuthStrategy) {
       // --- Extract alias from route param ---
       const rawAlias = req.params.alias;
       if (!rawAlias) {
-        return { status: 302, headers: { location: "/_/" } };
+        return { status: 302, headers: { location: "/_/not-found" } };
       }
       const alias = rawAlias.toLowerCase();
 
@@ -162,7 +162,7 @@ export function createRedirectHandler(strategy: AuthStrategy) {
         return {
           status: 302,
           headers: {
-            location: `/_/?suggest=${encodeURIComponent(alias)}`,
+            location: `/_/not-found?suggest=${encodeURIComponent(alias)}`,
           },
         };
       }

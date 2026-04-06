@@ -82,6 +82,7 @@ function blockProvider(provider: string): SwaRoute {
 /** Common page rewrite routes (interstitial, kitchen-sink, manage). */
 function pageRewrites(): SwaRoute[] {
   return [
+    { route: "/_/not-found", rewrite: "/index.html" },
     { route: "/_/interstitial", rewrite: "/index.html" },
     { route: "/_/kitchen-sink", rewrite: "/index.html" },
     { route: "/_/manage", rewrite: "/index.html" },

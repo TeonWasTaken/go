@@ -23,6 +23,7 @@ import { LandingPage } from "./components/LandingPage";
 import { ManagePage } from "./components/ManagePage";
 import { MotionToggle, useMotionPref } from "./components/MotionToggle";
 import { NetworkBackground } from "./components/NetworkBackground";
+import { NotFoundPage } from "./components/NotFoundPage";
 import { SearchBar } from "./components/SearchBar";
 import { StaticDotGrid } from "./components/StaticDotGrid";
 import { useTheme } from "./components/ThemeProvider";
@@ -135,6 +136,7 @@ function App() {
     "/_/manage",
     "/_/interstitial",
     "/_/kitchen-sink",
+    "/_/not-found",
   ].includes(location.pathname);
   const headerSearchValue = isManagePage ? searchParams.get("q") || "" : "";
 
@@ -219,6 +221,7 @@ function App() {
             <Route path="/_/manage" element={<ManagePage />} />
             <Route path="/_/interstitial" element={<InterstitialPage />} />
             <Route path="/_/kitchen-sink" element={<KitchenSinkPage />} />
+            <Route path="/_/not-found" element={<NotFoundPage />} />
             <Route path="/*" element={<AliasRedirect />} />
           </Routes>
         </main>

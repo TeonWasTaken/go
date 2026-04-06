@@ -289,7 +289,7 @@ describe("Property 1: Alias resolution follows private-first precedence", () => 
         const res = await handler(makeRequest(alias), makeContext());
         expect(res.status).toBe(302);
         const loc = (res.headers as Record<string, string>).location;
-        expect(loc).toContain(`/_/?suggest=${encodeURIComponent(alias)}`);
+        expect(loc).toContain(`/_/not-found?suggest=${encodeURIComponent(alias)}`);
       }),
       { numRuns: 50 },
     );
@@ -310,7 +310,7 @@ describe("Property 1: Alias resolution follows private-first precedence", () => 
           const res = await handler(makeRequest(alias), makeContext());
           expect(res.status).toBe(302);
           const loc = (res.headers as Record<string, string>).location;
-          expect(loc).toContain("/_/?suggest=");
+          expect(loc).toContain("/_/not-found?suggest=");
         },
       ),
       { numRuns: 50 },
@@ -685,7 +685,7 @@ describe("Property 5: Redirect API fallback URLs use /_/ base path", () => {
         expect(res.status).toBe(302);
         const loc = (res.headers as Record<string, string>).location;
         expect(loc).toMatch(/^\/_\//);
-        expect(loc).toContain(`/_/?suggest=${encodeURIComponent(alias)}`);
+        expect(loc).toContain(`/_/not-found?suggest=${encodeURIComponent(alias)}`);
       }),
       { numRuns: 100 },
     );
