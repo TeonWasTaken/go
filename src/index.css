@@ -1779,9 +1779,3 @@ body {
   color: var(--color-text-muted);
   margin-bottom: 1rem;
 }
-
-.not-found-page__sign-in-prompt {
-  font-size: 0.9375rem;
-  color: var(--color-text-muted);
-  margin-top: 1rem;
-}
