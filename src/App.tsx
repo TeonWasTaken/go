@@ -3,7 +3,8 @@ import {
     useCallback,
     useContext,
     useEffect,
-    useState,
+    useRef,
+    useState
 } from "react";
 import {
     NavLink,
@@ -20,7 +21,10 @@ import { InterstitialPage } from "./components/InterstitialPage";
 import { KitchenSinkPage } from "./components/KitchenSinkPage";
 import { LandingPage } from "./components/LandingPage";
 import { ManagePage } from "./components/ManagePage";
+import { MotionToggle, useMotionPref } from "./components/MotionToggle";
+import { NetworkBackground } from "./components/NetworkBackground";
 import { SearchBar } from "./components/SearchBar";
+import { StaticDotGrid } from "./components/StaticDotGrid";
 import { useTheme } from "./components/ThemeProvider";
 import { ThemeToggle } from "./components/ThemeToggle";
 import { UserBadge } from "./components/UserBadge";
@@ -73,6 +77,29 @@ function App() {
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const { resolved: theme } = useTheme();
+  const { pref: motionPref, setPref: setMotionPref } = useMotionPref();
+  const [fps, setFps] = useState(60);
+  const [degraded, setDegraded] = useState(false);
+  const lowFpsSinceRef = useRef<number | null>(null);
+
+  // Auto-degrade: if FPS stays below 30 for 3 consecutive seconds, switch to static
+  const handleFps = useCallback((currentFps: number) => {
+    setFps(currentFps);
+    if (currentFps < 30) {
+      const now = performance.now();
+      if (lowFpsSinceRef.current === null) {
+        lowFpsSinceRef.current = now;
+      }
+      // Switch to static after 3 consecutive seconds below the FPS threshold.
+      if (now - lowFpsSinceRef.current >= 3000) {
+        setDegraded(true);
+      }
+    } else {
+      lowFpsSinceRef.current = null;
+    }
+  }, []);
+
+  const isMotionActive = motionPref === "motion" && !degraded;
   const [authConfig, setAuthConfig] = useState<AuthConfigResponse | null>(null);
   const [user, setUser] = useState<UserIdentity | null>(null);
   const [landingSearchTerm, setLandingSearchTerm] = useState("");
@@ -152,6 +179,11 @@ function App() {
   return (
     <AuthConfigContext.Provider value={authConfig}>
       <UserContext.Provider value={user}>
+        {isMotionActive ? (
+          <NetworkBackground onFps={handleFps} />
+        ) : (
+          <StaticDotGrid />
+        )}
         {isAppRoute && (
           <header className="app-header container">
             <NavLink to="/" className="app-header__title">
@@ -175,6 +207,10 @@ function App() {
             </NavLink>
             <UserBadge />
             <ThemeToggle />
+            <MotionToggle pref={degraded ? "static" : motionPref} setPref={(v) => {
+              setMotionPref(v);
+              if (v === "motion") { setDegraded(false); lowFpsSinceRef.current = null; }
+            }} />
           </header>
         )}
         <main className="container main-content">
@@ -187,6 +223,24 @@ function App() {
           </Routes>
         </main>
       </UserContext.Provider>
+      {import.meta.env.DEV && isMotionActive && (
+        <div
+          aria-hidden="true"
+          style={{
+            position: "fixed",
+            bottom: 8,
+            right: 8,
+            fontSize: "10px",
+            fontFamily: "monospace",
+            color: fps < 30 ? "rgba(255,80,80,0.5)" : "rgba(128,128,128,0.35)",
+            pointerEvents: "none",
+            zIndex: 1,
+            userSelect: "none",
+          }}
+        >
+          {fps} fps
+        </div>
+      )}
     </AuthConfigContext.Provider>
   );
 }

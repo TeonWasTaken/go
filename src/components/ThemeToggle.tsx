@@ -5,7 +5,7 @@ type ThemeMode = "light" | "dark" | "system";
 const options: { value: ThemeMode; label: string; icon: string }[] = [
   { value: "light", label: "Light", icon: "☀️" },
   { value: "dark", label: "Dark", icon: "🌙" },
-  { value: "system", label: "System", icon: "💻" },
+  { value: "system", label: "System", icon: "⚙️" },
 ];
 
 export function ThemeToggle() {
@@ -31,7 +31,6 @@ export function ThemeToggle() {
           <span className="theme-toggle__icon" aria-hidden="true">
             {opt.icon}
           </span>
-          <span className="theme-toggle__label">{opt.label}</span>
         </button>
       ))}
     </fieldset>
