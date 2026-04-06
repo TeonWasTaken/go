@@ -42,11 +42,7 @@
   --color-text-secondary: #64748b;
   --color-bg: #e8eaed;
   --color-bg-gradient: none;
-  --color-bg-pattern: radial-gradient(
-    circle,
-    rgba(0, 0, 0, 0.08) 1px,
-    transparent 1px
-  );
+  --color-bg-pattern: none;
   --color-bg-pattern-size: 20px 20px;
   --color-border: rgba(0, 0, 0, 0.1);
 
@@ -77,11 +73,7 @@
   --color-text-secondary: #94a3b8;
   --color-bg: #1a1d23;
   --color-bg-gradient: none;
-  --color-bg-pattern: radial-gradient(
-    circle,
-    rgba(255, 255, 255, 0.03) 1px,
-    transparent 1px
-  );
+  --color-bg-pattern: none;
   --color-bg-pattern-size: 20px 20px;
   --color-border: rgba(255, 255, 255, 0.1);
 
@@ -421,8 +413,8 @@ body {
 .theme-toggle__btn {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
-  padding: 0.4rem 0.75rem;
+  justify-content: center;
+  padding: 0.4rem 0.55rem;
   border: none;
   border-radius: calc(var(--radius) - 3px);
   background: transparent;
@@ -465,16 +457,66 @@ body {
   line-height: 1;
 }
 
-.theme-toggle__label {
+@media (max-width: 480px) {
+  .theme-toggle__btn {
+    padding: 0.4rem 0.5rem;
+  }
+}
+
+/* ── Motion toggle (icon-only pill) ── */
+.motion-toggle {
+  display: inline-flex;
+  align-items: center;
+  border: none;
+  margin: 0;
+  padding: 3px;
+  border-radius: var(--radius);
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  gap: 0;
+}
+
+.motion-toggle__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.4rem 0.55rem;
+  border: none;
+  border-radius: calc(var(--radius) - 3px);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition:
+    background var(--transition-speed) ease,
+    color var(--transition-speed) ease,
+    box-shadow var(--transition-speed) ease;
   line-height: 1;
 }
 
-@media (max-width: 480px) {
-  .theme-toggle__label {
-    display: none;
-  }
+.motion-toggle__btn:not(.motion-toggle__btn--active):hover {
+  color: var(--color-text);
+  background: rgba(255, 255, 255, 0.15);
+}
 
-  .theme-toggle__btn {
+[data-theme="dark"] .motion-toggle__btn:not(.motion-toggle__btn--active):hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.motion-toggle__btn--active {
+  background: var(--color-primary);
+  color: #fff;
+}
+
+.motion-toggle__btn:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -1px;
+}
+
+@media (max-width: 480px) {
+  .motion-toggle__btn {
     padding: 0.4rem 0.5rem;
   }
 }
