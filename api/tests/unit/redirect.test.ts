@@ -130,7 +130,7 @@ describe("redirect handler", () => {
     expect(res.status).toBe(302);
     expect(res.headers).toHaveProperty("location");
     const location = (res.headers as Record<string, string>).location;
-    expect(location).toContain("/_/?suggest=unknown");
+    expect(location).toContain("/_/not-found?suggest=unknown");
   });
 
   it("302 redirects to global alias destination when only global exists", async () => {
@@ -299,7 +299,7 @@ describe("redirect handler", () => {
     const handler = createRedirectHandler(strategy);
     const res = await handler(req, makeContext());
     expect(res.status).toBe(302);
-    expect((res.headers as any).location).toBe("/_/");
+    expect((res.headers as any).location).toBe("/_/not-found");
   });
 });
 
@@ -380,7 +380,7 @@ describe("redirect handler — redirectRequiresAuth branching", () => {
     const res = await handler(makeRequest("secret"), makeContext());
     expect(res.status).toBe(302);
     const location = (res.headers as any).location as string;
-    expect(location).toContain("/_/?suggest=secret");
+    expect(location).toContain("/_/not-found?suggest=secret");
   });
 
   it("resolves both private and global when redirectRequiresAuth=false and identity present", async () => {

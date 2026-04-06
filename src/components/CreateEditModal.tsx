@@ -2,10 +2,10 @@ import { useEffect, useState } from "react";
 import { useAliasPrefix, useAuthConfig } from "../App";
 import type { AliasRecord } from "../services/api";
 import {
-  ApiError,
-  createLink,
-  scrapeMetadata,
-  updateLink,
+    ApiError,
+    createLink,
+    scrapeMetadata,
+    updateLink,
 } from "../services/api";
 import type { ExpiryPolicyValue } from "./ExpiryPolicySelector";
 import { ExpiryPolicySelector } from "./ExpiryPolicySelector";
@@ -17,6 +17,8 @@ interface CreateEditModalProps {
   onClose: () => void;
   onSaved: (record: AliasRecord) => void;
   existingAliases?: AliasRecord[];
+  /** Optional alias to pre-fill in create mode (e.g. from not-found suggest param) */
+  initialAlias?: string;
 }
 
 export function CreateEditModal({
@@ -24,6 +26,7 @@ export function CreateEditModal({
   onClose,
   onSaved,
   existingAliases = [],
+  initialAlias,
 }: CreateEditModalProps) {
   const isEdit = !!record;
   const { showToast } = useToast();
@@ -32,7 +35,7 @@ export function CreateEditModal({
   const isCorporate = authConfig?.mode === "corporate";
   const globalLabel = isCorporate ? "🌐 Global (All Staff)" : "🌐 Public";
 
-  const [alias, setAlias] = useState(record?.alias ?? "");
+  const [alias, setAlias] = useState(record?.alias ?? initialAlias ?? "");
   const [destinationUrl, setDestinationUrl] = useState(
     record?.destination_url ?? "",
   );

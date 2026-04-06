@@ -1749,3 +1749,33 @@ body {
 [data-theme="dark"] .user-badge__menu-item:hover {
   background: rgba(255, 255, 255, 0.06);
 }
+
+/* ── Not-found page ── */
+.not-found-page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  padding: 2rem 1rem;
+}
+
+.not-found-page__card {
+  max-width: 520px;
+  width: 100%;
+  padding: 2.5rem;
+  text-align: center;
+}
+
+.not-found-page__heading {
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin-bottom: 0.5rem;
+  color: var(--color-text);
+}
+
+.not-found-page__subtitle {
+  font-size: 0.9375rem;
+  color: var(--color-text-muted);
+  margin-bottom: 1rem;
+}
