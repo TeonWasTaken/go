@@ -177,7 +177,7 @@ describe("Preservation: committed staticwebapp.config.json has existing routes",
     expect(aliasRoute.rewrite).toBe("/api/redirect/{alias}");
   });
 
-  it("/_/manage route has allowedRoles: ['authenticated'] in committed config", () => {
+  it("/_/manage route has rewrite to /index.html in committed config", () => {
     const configPath = path.resolve(
       __dirname,
       "../../../staticwebapp.config.json",
@@ -187,6 +187,6 @@ describe("Preservation: committed staticwebapp.config.json has existing routes",
       (r: { route: string }) => r.route === "/_/manage",
     );
     expect(manageRoute).toBeDefined();
-    expect(manageRoute.allowedRoles).toEqual(["authenticated"]);
+    expect(manageRoute.rewrite).toBe("/index.html");
   });
 });
