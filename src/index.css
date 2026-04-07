@@ -31,10 +31,10 @@
 /* ── Light theme (default) ── */
 [data-theme="light"] {
   /* Primary: electric blue / Accent: cyan — Apple-inspired */
-  --color-primary: #2facc2;
-  --color-accent: #85d8ff;
-  --glow-shadow: 0 0 16px rgba(51, 197, 255, 0.25);
-  --glow-shadow-subtle: 0 0 12px rgba(51, 197, 255, 0.15);
+  --color-primary: #48a7be;
+  --color-accent: #82e0e7;
+  --glow-shadow: 0 0 16px rgba(72, 167, 190, 0.25);
+  --glow-shadow-subtle: 0 0 12px rgba(72, 167, 190, 0.15);
 
   /* Colors — WCAG AA: #1e293b on #e8eaed = ~11.2:1, #4b5c6b on #e8eaed = ~5.3:1 */
   --color-text: #1e293b;
@@ -49,12 +49,12 @@
   /* Glassmorphism surfaces */
   --glass-bg: rgba(255, 255, 255, 0.55);
   --glass-border: rgba(255, 255, 255, 0.35);
-  --glass-shadow: 0 8px 32px rgba(0, 120, 180, 0.12);
+  --glass-shadow: 0 8px 32px rgba(72, 167, 190, 0.1);
 
   /* Toast colors */
   --toast-success-bg: rgba(16, 185, 129, 0.9);
   --toast-error-bg: rgba(239, 68, 68, 0.9);
-  --toast-info-bg: rgba(51, 197, 255, 0.9);
+  --toast-info-bg: rgba(72, 167, 190, 0.9);
   --toast-text: #fff;
 
   /* Skeleton */
