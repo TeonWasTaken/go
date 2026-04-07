@@ -50,6 +50,18 @@
       "rewrite": "/index.html"
     },
     {
+      "route": "/manifest.json",
+      "allowedRoles": [
+        "anonymous"
+      ]
+    },
+    {
+      "route": "/sw.js",
+      "allowedRoles": [
+        "anonymous"
+      ]
+    },
+    {
       "route": "/{alias}",
       "rewrite": "/api/redirect/{alias}"
     },

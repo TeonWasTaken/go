@@ -17,9 +17,9 @@ import {
 } from "react-router-dom";
 import GoLogoDark from "./assets/GoLogo_dark.svg";
 import GoLogoLight from "./assets/GoLogo_light.svg";
+import { HomeScreenPage } from "./components/HomeScreenPage";
 import { InterstitialPage } from "./components/InterstitialPage";
 import { KitchenSinkPage } from "./components/KitchenSinkPage";
-import { LandingPage } from "./components/LandingPage";
 import { ManagePage } from "./components/ManagePage";
 import { MotionToggle, useMotionPref } from "./components/MotionToggle";
 import { NetworkBackground } from "./components/NetworkBackground";
@@ -29,6 +29,7 @@ import { StaticDotGrid } from "./components/StaticDotGrid";
 import { useTheme } from "./components/ThemeProvider";
 import { ThemeToggle } from "./components/ThemeToggle";
 import { UserBadge } from "./components/UserBadge";
+import { useStandaloneMode } from "./hooks/useStandaloneMode";
 import {
     type AuthConfigResponse,
     type UserIdentity,
@@ -55,17 +56,66 @@ export function useAliasPrefix(): string {
 /** Catch-all: forward unknown paths to the redirect API (mirrors SWA config in dev). */
 function AliasRedirect() {
   const { "*": alias } = useParams();
+  const navigate = useNavigate();
+  const [error, setError] = useState<string | null>(null);
+
   useEffect(() => {
-    if (alias) {
-      // In production, SWA rewrites /{alias} → /api/redirect/{alias} at the platform level.
-      // In dev, the Vite proxy handles /go-redirect → localhost:7071.
-      const isDev = import.meta.env.DEV;
-      const path = isDev
-        ? `/go-redirect/${encodeURIComponent(alias)}`
-        : `/api/redirect/${encodeURIComponent(alias)}`;
-      window.location.href = path;
-    }
-  }, [alias]);
+    if (!alias) return;
+
+    const isDev = import.meta.env.DEV;
+    const path = isDev
+      ? `/go-redirect/${encodeURIComponent(alias)}`
+      : `/api/redirect/${encodeURIComponent(alias)}`;
+
+    fetch(path, { redirect: "manual" })
+      .then((res) => {
+        if (res.type === "opaqueredirect") {
+          window.location.href = path;
+          return;
+        }
+        if (res.ok || (res.status >= 300 && res.status < 400)) {
+          const location = res.headers.get("location");
+          if (location) {
+            if (location.startsWith("/_/")) {
+              navigate(location, { replace: true });
+            } else {
+              window.location.href = location;
+            }
+          } else {
+            window.location.href = path;
+          }
+        } else if (res.status === 404) {
+          // Alias doesn't exist — show not-found page
+          navigate(`/_/not-found?suggest=${encodeURIComponent(alias)}`, { replace: true });
+        } else if (res.status === 401) {
+          // Auth required — let the normal auth flow handle it
+          window.location.href = path;
+        } else {
+          // Server error (5xx, etc.) — show error state
+          setError(`The server returned an error (${res.status}). The redirect service may be temporarily unavailable.`);
+        }
+      })
+      .catch(() => {
+        setError("Unable to reach the redirect service. Please check your connection and try again.");
+      });
+  }, [alias, navigate]);
+
+  if (error) {
+    return (
+      <div className="redirect-placeholder">
+        <p className="redirect-placeholder__text">{error}</p>
+        <button
+          type="button"
+          className="btn btn--primary"
+          style={{ marginTop: "1rem" }}
+          onClick={() => window.location.reload()}
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="redirect-placeholder">
       <p className="redirect-placeholder__text">Redirecting…</p>
@@ -74,6 +124,7 @@ function AliasRedirect() {
 }
 
 function App() {
+  const isStandalone = useStandaloneMode();
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
@@ -82,6 +133,7 @@ function App() {
   const [fps, setFps] = useState(60);
   const [degraded, setDegraded] = useState(false);
   const lowFpsSinceRef = useRef<number | null>(null);
+  const [headerVisible, setHeaderVisible] = useState(!isStandalone);
 
   // Auto-degrade: if FPS stays below 30 for 3 consecutive seconds, switch to static
   const handleFps = useCallback((currentFps: number) => {
@@ -103,7 +155,6 @@ function App() {
   const isMotionActive = motionPref === "motion" && !degraded;
   const [authConfig, setAuthConfig] = useState<AuthConfigResponse | null>(null);
   const [user, setUser] = useState<UserIdentity | null>(null);
-  const [landingSearchTerm, setLandingSearchTerm] = useState("");
 
   useEffect(() => {
     getAuthConfig()
@@ -140,36 +191,50 @@ function App() {
   ].includes(location.pathname);
   const headerSearchValue = isManagePage ? searchParams.get("q") || "" : "";
 
+  // On homepage, show header when mouse/touch near top edge; on other pages always visible
   useEffect(() => {
     if (location.pathname !== "/") {
-      setLandingSearchTerm("");
+      setHeaderVisible(true);
+      return;
     }
+    setHeaderVisible(false);
+
+    const TRIGGER_ZONE = 60; // px from top edge
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (e.clientY <= TRIGGER_ZONE) setHeaderVisible(true);
+    };
+    const handleTouchStart = (e: TouchEvent) => {
+      const touch = e.touches[0];
+      if (touch && touch.clientY <= TRIGGER_ZONE) setHeaderVisible(true);
+    };
+
+    window.addEventListener("mousemove", handleMouseMove, { passive: true });
+    window.addEventListener("touchstart", handleTouchStart, { passive: true });
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("touchstart", handleTouchStart);
+    };
   }, [location.pathname]);
 
   const handleHeaderSearch = useCallback(
     (term: string) => {
-      if (location.pathname === "/") {
-        setLandingSearchTerm(term);
-      } else if (term) {
+      if (term) {
         navigate(`/_/manage?q=${encodeURIComponent(term)}`, { replace: true });
       } else if (isManagePage) {
         navigate("/_/manage", { replace: true });
       }
-      // Empty term on non-landing, non-manage pages: do nothing (stay on current page)
     },
-    [location.pathname, isManagePage, navigate],
+    [isManagePage, navigate],
   );
 
   const handleHeaderSubmit = useCallback(
     (term: string) => {
-      if (location.pathname === "/") {
-        setLandingSearchTerm(term);
-      } else if (!isManagePage) {
+      if (!isManagePage) {
         navigate(term ? `/_/manage?q=${encodeURIComponent(term)}` : "/_/manage");
       }
-      // On manage page, the debounced onSearch already handles filtering
     },
-    [location.pathname, isManagePage, navigate],
+    [isManagePage, navigate],
   );
 
   return (
@@ -181,7 +246,7 @@ function App() {
           <StaticDotGrid />
         )}
         {isAppRoute && (
-          <header className="app-header container">
+          <header className={`app-header container${location.pathname === "/" ? ` app-header--standalone${headerVisible ? " app-header--visible" : ""}` : ""}`}>
             <NavLink to="/" className="app-header__title">
               <img
                 src={theme === "dark" ? GoLogoDark : GoLogoLight}
@@ -211,7 +276,7 @@ function App() {
         )}
         <main className="container main-content">
           <Routes>
-            <Route path="/" element={<LandingPage searchTerm={landingSearchTerm} />} />
+            <Route path="/" element={<HomeScreenPage />} />
             <Route path="/_/manage" element={<ManagePage />} />
             <Route path="/_/interstitial" element={<InterstitialPage />} />
             <Route path="/_/kitchen-sink" element={<KitchenSinkPage />} />

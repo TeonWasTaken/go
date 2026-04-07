@@ -31,6 +31,11 @@ vi.mock("./services/api", () => ({
     .mockResolvedValue({ email: "dev@localhost", roles: ["User"] }),
 }));
 
+// Mock useStandaloneMode — default to normal browser mode (not standalone)
+vi.mock("./hooks/useStandaloneMode", () => ({
+  useStandaloneMode: vi.fn().mockReturnValue(false),
+}));
+
 import { getAuthConfig } from "./services/api";
 
 describe("AuthConfigContext", () => {
@@ -96,7 +101,7 @@ describe("AuthConfigContext", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByAltText("Go")).toBeInTheDocument();
+      expect(screen.getAllByAltText("Go").length).toBeGreaterThan(0);
     });
   });
 
