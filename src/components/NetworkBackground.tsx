@@ -189,8 +189,8 @@ export function NetworkBackground({
       meshColorRef.current = "rgba(255,255,255,0.04)";
     } else {
       glowColorRef.current = "#0284c7";
-      dotColorRef.current = "rgba(0,0,0,0.12)";
-      meshColorRef.current = "rgba(0,0,0,0.07)";
+      dotColorRef.current = "rgba(0,0,0,0.18)";
+      meshColorRef.current = "rgba(0,0,0,0.10)";
     }
   }, [resolved]);
 

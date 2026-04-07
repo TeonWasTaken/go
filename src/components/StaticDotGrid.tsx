@@ -36,7 +36,7 @@ export function StaticDotGrid({
 
       const dotColor = resolved === "dark"
         ? "rgba(255,255,255,0.07)"
-        : "rgba(0,0,0,0.12)";
+        : "rgba(0,0,0,0.18)";
 
       ctx!.clearRect(0, 0, W, H);
       ctx!.fillStyle = dotColor;

@@ -20,22 +20,22 @@
   line-height: 1.5;
   font-weight: 400;
 
-  /* Colors */
-  --color-primary: #0ea5e9;
-  --color-accent: #e946a0;
+  /* Colors — theme-specific, see [data-theme] blocks below */
 
   /* Spacing */
   --radius: 16px;
   --transition-speed: 0.25s;
   --glass-blur: blur(16px);
-
-  /* Glow */
-  --glow-shadow: 0 0 16px rgba(14, 165, 233, 0.25);
-  --glow-shadow-subtle: 0 0 12px rgba(14, 165, 233, 0.15);
 }
 
 /* ── Light theme (default) ── */
 [data-theme="light"] {
+  /* Primary: electric blue / Accent: cyan — Apple-inspired */
+  --color-primary: #2facc2;
+  --color-accent: #85d8ff;
+  --glow-shadow: 0 0 16px rgba(51, 197, 255, 0.25);
+  --glow-shadow-subtle: 0 0 12px rgba(51, 197, 255, 0.15);
+
   /* Colors — WCAG AA: #1e293b on #e8eaed = ~11.2:1, #4b5c6b on #e8eaed = ~5.3:1 */
   --color-text: #1e293b;
   --color-text-muted: #4b5c6b;
@@ -49,12 +49,12 @@
   /* Glassmorphism surfaces */
   --glass-bg: rgba(255, 255, 255, 0.55);
   --glass-border: rgba(255, 255, 255, 0.35);
-  --glass-shadow: 0 8px 32px rgba(31, 38, 135, 0.15);
+  --glass-shadow: 0 8px 32px rgba(0, 120, 180, 0.12);
 
   /* Toast colors */
   --toast-success-bg: rgba(16, 185, 129, 0.9);
   --toast-error-bg: rgba(239, 68, 68, 0.9);
-  --toast-info-bg: rgba(59, 130, 246, 0.9);
+  --toast-info-bg: rgba(51, 197, 255, 0.9);
   --toast-text: #fff;
 
   /* Skeleton */
@@ -67,6 +67,12 @@
 
 /* ── Dark theme ── */
 [data-theme="dark"] {
+  /* Primary: warm orange / Accent: sunset pink — retro glow */
+  --color-primary: #ff3460;
+  --color-accent: #ff8e4d;
+  --glow-shadow: 0 0 16px rgba(255, 52, 96, 0.3);
+  --glow-shadow-subtle: 0 0 12px rgba(255, 52, 96, 0.18);
+
   /* Colors — WCAG AA: #e2e8f0 on #1a1d23 = ~13.1:1, #94a3b8 on #1a1d23 = ~6.0:1 */
   --color-text: #e2e8f0;
   --color-text-muted: #94a3b8;
@@ -85,7 +91,7 @@
   /* Toast colors */
   --toast-success-bg: rgba(16, 185, 129, 0.85);
   --toast-error-bg: rgba(239, 68, 68, 0.85);
-  --toast-info-bg: rgba(59, 130, 246, 0.85);
+  --toast-info-bg: rgba(255, 52, 96, 0.85);
   --toast-text: #fff;
 
   /* Skeleton */
@@ -607,7 +613,7 @@ body {
 
 .btn--primary:hover {
   transform: scale(1.03);
-  box-shadow: 0 12px 40px rgba(14, 165, 233, 0.3);
+  box-shadow: var(--glow-shadow);
 }
 
 .btn--primary:active {
@@ -772,13 +778,13 @@ body {
 }
 
 .alias-card__badge--personal {
-  background: rgba(233, 70, 160, 0.15);
-  color: #be185d;
+  background: rgba(139, 92, 246, 0.15);
+  color: #6d28d9;
 }
 
 [data-theme="dark"] .alias-card__badge--personal {
-  background: rgba(233, 70, 160, 0.2);
-  color: #f9a8d4;
+  background: rgba(168, 85, 247, 0.2);
+  color: #c4b5fd;
 }
 
 /* Badge colors — WCAG AA: text on opaque badge bg ≥ 4.5:1 in both themes */
