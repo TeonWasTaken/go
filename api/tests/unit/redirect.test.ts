@@ -219,7 +219,10 @@ describe("redirect handler", () => {
   });
 
   it("redirects to dashboard with expired param when alias is expired", async () => {
-    const expired = makeAlias({ expiry_status: "expired" });
+    const expired = makeAlias({
+      expiry_status: "expired",
+      expires_at: new Date(Date.now() - 86400_000).toISOString(),
+    });
     mockGetAlias.mockImplementation(async (_alias, id) => {
       if (id === "test") return expired;
       return undefined;
@@ -434,5 +437,103 @@ describe("redirect handler — redirectRequiresAuth branching", () => {
     const res = await handler(makeRequest("docs"), makeContext());
     expect(res.status).toBe(302);
     expect((res.headers as any).location).toBe("https://private.example.com/");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Integration tests — read-time expiry status correction
+// ---------------------------------------------------------------------------
+
+describe("redirect handler — stale expiry_status correction", () => {
+  // Fixed reference date: 2025-07-01T00:00:00Z
+  const NOW = new Date("2025-07-01T00:00:00Z");
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(NOW);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("redirects to expired notice when record has stale active status but expires_at is in the past", async () => {
+    const staleExpired = makeAlias({
+      id: "stale",
+      alias: "stale",
+      // Expired 2 months ago but stored status is still "active"
+      expires_at: "2025-05-01T00:00:00Z",
+      expiry_status: "active",
+      expired_at: null,
+    });
+    mockGetAlias.mockImplementation(async (_alias, id) => {
+      if (id === "stale") return staleExpired;
+      return undefined;
+    });
+
+    const handler = createRedirectHandler(strategy);
+    const res = await handler(makeRequest("stale"), makeContext());
+    expect(res.status).toBe(302);
+    expect((res.headers as any).location).toContain("/_/?expired=stale");
+    // Should NOT have updated analytics for an expired link
+    expect(mockUpdateAlias).not.toHaveBeenCalled();
+  });
+
+  it("redirects to expired notice when both private and global have stale expired status", async () => {
+    const stalePrivate = makeAlias({
+      id: "link:alice@example.com",
+      alias: "link",
+      is_private: true,
+      expires_at: "2025-04-01T00:00:00Z",
+      expiry_status: "active",
+      destination_url: "https://private.example.com",
+    });
+    const staleGlobal = makeAlias({
+      id: "link",
+      alias: "link",
+      is_private: false,
+      expires_at: "2025-03-01T00:00:00Z",
+      expiry_status: "active",
+      destination_url: "https://global.example.com",
+    });
+    mockGetAlias.mockImplementation(async (_alias, id) => {
+      if (id === "link:alice@example.com") return stalePrivate;
+      if (id === "link") return staleGlobal;
+      return undefined;
+    });
+
+    const handler = createRedirectHandler(strategy);
+    const res = await handler(makeRequest("link"), makeContext());
+    expect(res.status).toBe(302);
+    expect((res.headers as any).location).toContain("/_/?expired=link");
+  });
+
+  it("increments click_count and updates last_accessed_at for non-expired record", async () => {
+    const activeRecord = makeAlias({
+      id: "active-link",
+      alias: "active-link",
+      click_count: 7,
+      last_accessed_at: null,
+      // Far future — clearly active
+      expires_at: "2026-06-01T00:00:00Z",
+      expiry_status: "active",
+    });
+    mockGetAlias.mockImplementation(async (_alias, id) => {
+      if (id === "active-link") return activeRecord;
+      return undefined;
+    });
+
+    const handler = createRedirectHandler(strategy);
+    const res = await handler(makeRequest("active-link"), makeContext());
+    expect(res.status).toBe(302);
+    expect((res.headers as any).location).toBe(
+      "https://example.com/destination",
+    );
+
+    expect(mockUpdateAlias).toHaveBeenCalledTimes(1);
+    const updated = mockUpdateAlias.mock.calls[0][0];
+    expect(updated.click_count).toBe(8);
+    expect(updated.last_accessed_at).toBe(NOW.toISOString());
+    expect(updated.heat_score).toBeGreaterThan(0);
   });
 });

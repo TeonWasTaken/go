@@ -20,6 +20,7 @@ import {
 } from "@azure/functions";
 import type { AuthStrategy } from "../shared/auth-strategy.js";
 import { getAliasByPartition, updateAlias } from "../shared/cosmos-client.js";
+import { evaluateExpiryStatus } from "../shared/expiry-utils.js";
 import { computeHeatScore } from "../shared/heat-utils.js";
 import { AliasRecord } from "../shared/models.js";
 import { mergeUrls } from "../shared/url-utils.js";
@@ -122,6 +123,10 @@ export function createRedirectHandler(strategy: AuthStrategy) {
       }
 
       const now = new Date();
+
+      // --- Evaluate expiry status at read time (fixes stale stored status) ---
+      if (privateAlias) privateAlias = evaluateExpiryStatus(privateAlias, now);
+      if (globalAlias) globalAlias = evaluateExpiryStatus(globalAlias, now);
 
       // --- Determine which record(s) matched ---
       const hasPrivate = !!privateAlias;

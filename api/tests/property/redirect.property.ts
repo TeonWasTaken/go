@@ -468,6 +468,7 @@ describe("Property 4: Expired aliases block redirection", () => {
           destination_url: destUrl,
           expiry_status: "expired",
           expired_at: new Date(Date.now() - 86400_000).toISOString(),
+          expires_at: new Date(Date.now() - 86400_000).toISOString(),
         });
 
         mockGetAlias.mockImplementation(async (_a, id) => {
@@ -505,6 +506,7 @@ describe("Property 4: Expired aliases block redirection", () => {
             created_by: email,
             expiry_status: "expired",
             expired_at: new Date(Date.now() - 86400_000).toISOString(),
+            expires_at: new Date(Date.now() - 86400_000).toISOString(),
           });
 
           mockGetAlias.mockImplementation(async (_a, id) => {
@@ -544,6 +546,7 @@ describe("Property 4: Expired aliases block redirection", () => {
             created_by: email,
             expiry_status: "expired",
             expired_at: new Date(Date.now() - 86400_000).toISOString(),
+            expires_at: new Date(Date.now() - 86400_000).toISOString(),
           });
           const global = makeAlias({
             id: alias,
@@ -552,6 +555,7 @@ describe("Property 4: Expired aliases block redirection", () => {
             destination_url: globalUrl,
             expiry_status: "expired",
             expired_at: new Date(Date.now() - 86400_000).toISOString(),
+            expires_at: new Date(Date.now() - 86400_000).toISOString(),
           });
 
           mockGetAlias.mockImplementation(async (_a, id) => {
@@ -707,6 +711,7 @@ describe("Property 5: Redirect API fallback URLs use /_/ base path", () => {
             destination_url: destUrl,
             expiry_status: "expired",
             expired_at: new Date(Date.now() - 86400_000).toISOString(),
+            expires_at: new Date(Date.now() - 86400_000).toISOString(),
           });
 
           mockGetAlias.mockImplementation(async (_a, id) => {

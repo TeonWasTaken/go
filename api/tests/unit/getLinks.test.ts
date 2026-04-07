@@ -24,10 +24,10 @@ vi.mock("../../src/shared/cosmos-client.js", () => ({
 
 import { createGetLinksHandler } from "../../src/functions/getLinks.js";
 import {
-  getPopularGlobalAliases,
-  getPopularGlobalAliasesByClicks,
-  listAliasesForUser,
-  searchAliases,
+    getPopularGlobalAliases,
+    getPopularGlobalAliasesByClicks,
+    listAliasesForUser,
+    searchAliases,
 } from "../../src/shared/cosmos-client.js";
 
 const mockListAliases = vi.mocked(listAliasesForUser);
@@ -270,5 +270,111 @@ describe("getLinks handler", () => {
     const res = await handler(makeRequest(), makeContext());
     expect(res.status).toBe(200);
     expect(res.headers).toEqual({ "content-type": "application/json" });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Integration tests — read-time expiry status correction
+// ---------------------------------------------------------------------------
+
+describe("getLinks handler — stale expiry_status correction", () => {
+  // Fixed reference date: 2025-07-01T00:00:00Z
+  const NOW = new Date("2025-07-01T00:00:00Z");
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(NOW);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("corrects stale expiry_status from 'active' to 'expired' for past expires_at in default listing", async () => {
+    const staleRecord = makeAlias({
+      alias: "stale-link",
+      // Expired 2 months ago
+      expires_at: "2025-05-01T00:00:00Z",
+      expiry_status: "active",
+      expired_at: null,
+    });
+    mockListAliases.mockResolvedValue([staleRecord]);
+
+    const handler = createGetLinksHandler(strategy);
+    const res = await handler(makeRequest(), makeContext());
+    expect(res.status).toBe(200);
+
+    const body = JSON.parse(res.body as string);
+    expect(body).toHaveLength(1);
+    expect(body[0].expiry_status).toBe("expired");
+    expect(body[0].expired_at).toBeTruthy();
+  });
+
+  it("corrects stale expiry_status to 'expiring_soon' when expires_at is within 30 days", async () => {
+    const staleRecord = makeAlias({
+      alias: "soon-link",
+      // Expires in 15 days from NOW
+      expires_at: "2025-07-16T00:00:00Z",
+      expiry_status: "active",
+      expired_at: null,
+    });
+    mockListAliases.mockResolvedValue([staleRecord]);
+
+    const handler = createGetLinksHandler(strategy);
+    const res = await handler(makeRequest(), makeContext());
+    expect(res.status).toBe(200);
+
+    const body = JSON.parse(res.body as string);
+    expect(body).toHaveLength(1);
+    expect(body[0].expiry_status).toBe("expiring_soon");
+  });
+
+  it("corrects stale expiry_status in scope=popular results", async () => {
+    const expiredRecord = makeAlias({
+      alias: "old-popular",
+      expires_at: "2025-03-01T00:00:00Z",
+      expiry_status: "active",
+      expired_at: null,
+      heat_score: 50,
+    });
+    const activeRecord = makeAlias({
+      alias: "fresh-popular",
+      expires_at: "2026-06-01T00:00:00Z",
+      expiry_status: "active",
+      expired_at: null,
+      heat_score: 40,
+    });
+    mockGetPopular.mockResolvedValue([expiredRecord, activeRecord]);
+
+    const handler = createGetLinksHandler(strategy);
+    const res = await handler(makeRequest({ scope: "popular" }), makeContext());
+    expect(res.status).toBe(200);
+
+    const body = JSON.parse(res.body as string);
+    expect(body).toHaveLength(2);
+    // Expired record should be corrected
+    expect(body[0].expiry_status).toBe("expired");
+    expect(body[0].expired_at).toBeTruthy();
+    // Active record (11 months out) should remain active
+    expect(body[1].expiry_status).toBe("active");
+    expect(body[1].expired_at).toBeNull();
+  });
+
+  it("leaves records with expiry_policy_type 'never' unchanged", async () => {
+    const neverRecord = makeAlias({
+      alias: "permanent",
+      expiry_policy_type: "never",
+      expires_at: null,
+      expiry_status: "no_expiry",
+      expired_at: null,
+      duration_months: null,
+    });
+    mockListAliases.mockResolvedValue([neverRecord]);
+
+    const handler = createGetLinksHandler(strategy);
+    const res = await handler(makeRequest(), makeContext());
+    const body = JSON.parse(res.body as string);
+    expect(body[0].expiry_status).toBe("no_expiry");
+    expect(body[0].expired_at).toBeNull();
   });
 });

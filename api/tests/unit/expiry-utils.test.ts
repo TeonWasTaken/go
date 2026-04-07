@@ -158,3 +158,151 @@ describe("computeExpiry", () => {
     });
   });
 });
+
+import {
+    evaluateExpiryStatus,
+    evaluateExpiryStatusBatch,
+} from "../../src/shared/expiry-utils.js";
+import type { AliasRecord } from "../../src/shared/models.js";
+
+// ---------------------------------------------------------------------------
+// Helper: build a minimal AliasRecord for testing
+// ---------------------------------------------------------------------------
+
+function buildRecord(overrides: Partial<AliasRecord> = {}): AliasRecord {
+  return {
+    id: "test-id",
+    alias: "test",
+    destination_url: "https://example.com",
+    created_by: "user@test.com",
+    title: "Test Link",
+    click_count: 0,
+    heat_score: 0,
+    heat_updated_at: null,
+    is_private: false,
+    created_at: "2024-01-01T00:00:00.000Z",
+    last_accessed_at: null,
+    expiry_policy_type: "fixed",
+    duration_months: 12,
+    custom_expires_at: null,
+    expires_at: "2025-01-01T00:00:00.000Z",
+    expiry_status: "active",
+    expired_at: null,
+    icon_url: null,
+    ...overrides,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// evaluateExpiryStatus
+// ---------------------------------------------------------------------------
+
+describe("evaluateExpiryStatus", () => {
+  const now = new Date("2025-07-01T12:00:00.000Z");
+
+  it('returns "expired" when expires_at is in the past', () => {
+    const record = buildRecord({
+      expires_at: "2025-01-15T00:00:00.000Z",
+      expiry_status: "active",
+    });
+
+    const result = evaluateExpiryStatus(record, now);
+
+    expect(result.expiry_status).toBe("expired");
+    expect(result.expired_at).toBe(now.toISOString());
+  });
+
+  it('returns "expiring_soon" when expires_at is within 30 days', () => {
+    // 15 days from now
+    const record = buildRecord({
+      expires_at: "2025-07-16T12:00:00.000Z",
+      expiry_status: "active",
+    });
+
+    const result = evaluateExpiryStatus(record, now);
+
+    expect(result.expiry_status).toBe("expiring_soon");
+    expect(result.expired_at).toBeNull();
+  });
+
+  it('returns "active" when expires_at is more than 30 days out', () => {
+    const record = buildRecord({
+      expires_at: "2026-06-01T00:00:00.000Z",
+      expiry_status: "active",
+    });
+
+    const result = evaluateExpiryStatus(record, now);
+
+    expect(result.expiry_status).toBe("active");
+    expect(result.expired_at).toBeNull();
+  });
+
+  it("returns record unchanged when expiry_policy_type is 'never'", () => {
+    const record = buildRecord({
+      expiry_policy_type: "never",
+      expires_at: null,
+      expiry_status: "no_expiry",
+      duration_months: null,
+    });
+
+    const result = evaluateExpiryStatus(record, now);
+
+    expect(result).toBe(record); // same reference — unchanged
+    expect(result.expiry_status).toBe("no_expiry");
+  });
+
+  it("returns record unchanged when expires_at is null", () => {
+    const record = buildRecord({
+      expires_at: null,
+      expiry_status: "active",
+    });
+
+    const result = evaluateExpiryStatus(record, now);
+
+    expect(result).toBe(record); // same reference — unchanged
+    expect(result.expiry_status).toBe("active");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// evaluateExpiryStatusBatch
+// ---------------------------------------------------------------------------
+
+describe("evaluateExpiryStatusBatch", () => {
+  const now = new Date("2025-07-01T12:00:00.000Z");
+
+  it("applies evaluation to all records in array", () => {
+    const records = [
+      buildRecord({
+        id: "expired-link",
+        expires_at: "2025-01-15T00:00:00.000Z",
+        expiry_status: "active",
+      }),
+      buildRecord({
+        id: "expiring-soon-link",
+        expires_at: "2025-07-16T12:00:00.000Z",
+        expiry_status: "active",
+      }),
+      buildRecord({
+        id: "active-link",
+        expires_at: "2026-06-01T00:00:00.000Z",
+        expiry_status: "active",
+      }),
+      buildRecord({
+        id: "never-link",
+        expiry_policy_type: "never",
+        expires_at: null,
+        expiry_status: "no_expiry",
+        duration_months: null,
+      }),
+    ];
+
+    const results = evaluateExpiryStatusBatch(records, now);
+
+    expect(results).toHaveLength(4);
+    expect(results[0].expiry_status).toBe("expired");
+    expect(results[1].expiry_status).toBe("expiring_soon");
+    expect(results[2].expiry_status).toBe("active");
+    expect(results[3].expiry_status).toBe("no_expiry");
+  });
+});

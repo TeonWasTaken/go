@@ -6,19 +6,20 @@
  */
 
 import {
-  app,
-  HttpRequest,
-  HttpResponseInit,
-  InvocationContext,
+    app,
+    HttpRequest,
+    HttpResponseInit,
+    InvocationContext,
 } from "@azure/functions";
 import type { AuthStrategy } from "../shared/auth-strategy.js";
 import {
-  getPopularGlobalAliases,
-  getPopularGlobalAliasesByClicks,
-  listAliasesForUser,
-  searchAliases,
-  searchPublicAliases,
+    getPopularGlobalAliases,
+    getPopularGlobalAliasesByClicks,
+    listAliasesForUser,
+    searchAliases,
+    searchPublicAliases,
 } from "../shared/cosmos-client.js";
+import { evaluateExpiryStatusBatch } from "../shared/expiry-utils.js";
 
 // ---------------------------------------------------------------------------
 // Main handler
@@ -46,7 +47,7 @@ export function createGetLinksHandler(strategy: AuthStrategy) {
             "content-type": "application/json",
             "cache-control": `public, max-age=${popularMaxAge}`,
           },
-          body: JSON.stringify(records),
+          body: JSON.stringify(evaluateExpiryStatusBatch(records)),
         };
       }
 
@@ -58,7 +59,7 @@ export function createGetLinksHandler(strategy: AuthStrategy) {
             "content-type": "application/json",
             "cache-control": `public, max-age=${popularMaxAge}`,
           },
-          body: JSON.stringify(records),
+          body: JSON.stringify(evaluateExpiryStatusBatch(records)),
         };
       }
 
@@ -81,7 +82,7 @@ export function createGetLinksHandler(strategy: AuthStrategy) {
         return {
           status: 200,
           headers: { "content-type": "application/json" },
-          body: JSON.stringify(records),
+          body: JSON.stringify(evaluateExpiryStatusBatch(records)),
         };
       }
 
@@ -97,7 +98,7 @@ export function createGetLinksHandler(strategy: AuthStrategy) {
         return {
           status: 200,
           headers: { "content-type": "application/json" },
-          body: JSON.stringify(records),
+          body: JSON.stringify(evaluateExpiryStatusBatch(records)),
         };
       }
 
@@ -106,7 +107,7 @@ export function createGetLinksHandler(strategy: AuthStrategy) {
       return {
         status: 200,
         headers: { "content-type": "application/json" },
-        body: JSON.stringify(records),
+        body: JSON.stringify(evaluateExpiryStatusBatch(records)),
       };
     } catch (err: any) {
       context.error("Unexpected error in getLinks handler:", err);

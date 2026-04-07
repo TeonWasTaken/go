@@ -5,6 +5,8 @@
  * configuration. Used during alias creation, update, and renewal.
  */
 
+import type { AliasRecord } from "./models.js";
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -111,4 +113,40 @@ export function computeExpiry(params: ComputeExpiryParams): ExpiryComputation {
     expiry_policy_type: "fixed",
     duration_months: durationMonths,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Read-time expiry evaluation
+// ---------------------------------------------------------------------------
+
+/**
+ * Re-evaluates `expiry_status` and `expired_at` for a single record based on
+ * the current time. Records with no concrete expiry (`expires_at` is null or
+ * `expiry_policy_type` is `"never"`) are returned unchanged.
+ */
+export function evaluateExpiryStatus(
+  record: AliasRecord,
+  now?: Date,
+): AliasRecord {
+  if (record.expires_at === null || record.expiry_policy_type === "never") {
+    return record;
+  }
+
+  const currentTime = now ?? new Date();
+  const expiresAtMs = Date.parse(record.expires_at);
+  const status = evaluateStatus(expiresAtMs, currentTime);
+
+  return { ...record, ...status };
+}
+
+/**
+ * Batch version of `evaluateExpiryStatus`. Uses a single `now` timestamp
+ * across all records for consistency within a response.
+ */
+export function evaluateExpiryStatusBatch(
+  records: AliasRecord[],
+  now?: Date,
+): AliasRecord[] {
+  const currentTime = now ?? new Date();
+  return records.map((record) => evaluateExpiryStatus(record, currentTime));
 }
