@@ -1792,8 +1792,7 @@ body {
   align-items: center;
   text-align: center;
   flex: 1;
-  /* Remove parent's padding-bottom on the hero view */
-  margin-bottom: -4rem;
+  min-height: 0;
 }
 
 .home-screen-hero {
@@ -1879,12 +1878,40 @@ body {
   text-decoration: underline;
 }
 
-/* Browse view (popular links swap) */
+/* Browse view (popular links swap) — crossfade wrapper */
+.home-screen-crossfade {
+  position: relative;
+  width: 100%;
+  max-width: 720px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.home-screen-crossfade__panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  transition: opacity 0.35s ease;
+}
+
+.home-screen-crossfade__panel--hidden {
+  opacity: 0;
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+}
+
 .home-screen-browse {
   width: 100%;
   max-width: 720px;
-  padding: 1rem 1rem 4rem;
+  padding: 1rem 1rem 2rem;
   margin: 0 auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
   text-align: left;
 }
 
@@ -1905,22 +1932,19 @@ body {
   opacity: 1;
 }
 
-/* Homepage header: hidden until mouse/touch near top edge */
+/* Homepage header: hidden until mouse/touch near top edge.
+   Space is always reserved (visibility: hidden) so content doesn't shift. */
 .app-header--standalone {
-  max-height: 0;
   opacity: 0;
-  margin-bottom: 0;
-  padding-top: 0;
-  padding-bottom: 0;
-  transition: max-height 0.3s ease, opacity 0.3s ease, padding 0.3s ease, margin-bottom 0.3s ease;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.3s ease, visibility 0.3s ease;
 }
 
 .app-header--standalone.app-header--visible {
-  max-height: 5rem;
   opacity: 1;
-  padding-top: 0.75rem;
-  padding-bottom: 0.75rem;
-  margin-bottom: 1rem;
+  visibility: visible;
+  pointer-events: auto;
 }
 
 @media (max-width: 480px) {
