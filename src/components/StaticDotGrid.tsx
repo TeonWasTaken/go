@@ -34,9 +34,9 @@ export function StaticDotGrid({
       canvas!.width = W;
       canvas!.height = H;
 
-      const dotColor = resolved === "dark"
-        ? "rgba(255,255,255,0.07)"
-        : "rgba(0,0,0,0.18)";
+      const style = getComputedStyle(document.documentElement);
+      const dotColor = style.getPropertyValue("--bg-dot").trim()
+        || (resolved === "dark" ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.18)");
 
       ctx!.clearRect(0, 0, W, H);
       ctx!.fillStyle = dotColor;
@@ -50,7 +50,8 @@ export function StaticDotGrid({
       ctx!.fill();
     }
 
-    draw();
+    // Defer initial draw so the DOM has applied the new data-theme attribute
+    requestAnimationFrame(() => draw());
 
     let ro: ResizeObserver | null = null;
     if (typeof ResizeObserver !== "undefined") {

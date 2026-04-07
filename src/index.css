@@ -63,6 +63,12 @@
 
   /* Focus */
   --focus-ring: var(--color-primary);
+
+  /* Animated background */
+  --bg-glow: #005e75;
+  --bg-glow-blend: source-over;
+  --bg-dot: rgba(0, 0, 0, 0.2);
+  --bg-mesh: rgba(0, 0, 0, 0.1);
 }
 
 /* ── Dark theme ── */
@@ -100,6 +106,12 @@
 
   /* Focus */
   --focus-ring: var(--color-primary);
+
+  /* Animated background */
+  --bg-glow: #0ea5e9;
+  --bg-glow-blend: lighter;
+  --bg-dot: rgba(255, 255, 255, 0.07);
+  --bg-mesh: rgba(255, 255, 255, 0.04);
 }
 
 *,

@@ -176,22 +176,20 @@ export function NetworkBackground({
 
   const { resolved } = useTheme();
   const glowColorRef = useRef("#0ea5e9");
+  const glowBlendRef = useRef<GlobalCompositeOperation>("lighter");
   const dotColorRef = useRef("rgba(255,255,255,0.07)");
   const meshColorRef = useRef("rgba(255,255,255,0.04)");
 
   // Sync theme colors into refs so the animation loop reads them without re-renders
   useEffect(() => {
-    const style = getComputedStyle(document.documentElement);
-    const primary = style.getPropertyValue("--color-primary").trim() || "#0ea5e9";
-    if (resolved === "dark") {
-      glowColorRef.current = primary;
-      dotColorRef.current = "rgba(255,255,255,0.07)";
-      meshColorRef.current = "rgba(255,255,255,0.04)";
-    } else {
-      glowColorRef.current = "#0284c7";
-      dotColorRef.current = "rgba(0,0,0,0.18)";
-      meshColorRef.current = "rgba(0,0,0,0.10)";
-    }
+    // Defer read so the DOM has applied the new data-theme attribute
+    requestAnimationFrame(() => {
+      const style = getComputedStyle(document.documentElement);
+      glowColorRef.current = style.getPropertyValue("--bg-glow").trim() || "#0ea5e9";
+      glowBlendRef.current = (style.getPropertyValue("--bg-glow-blend").trim() || "lighter") as GlobalCompositeOperation;
+      dotColorRef.current = style.getPropertyValue("--bg-dot").trim() || "rgba(255,255,255,0.07)";
+      meshColorRef.current = style.getPropertyValue("--bg-mesh").trim() || "rgba(255,255,255,0.04)";
+    });
   }, [resolved]);
 
   /**
@@ -580,7 +578,7 @@ export function NetworkBackground({
         const rgb = hexToRgb(glowColorRef.current);
 
         // "lighter" blend mode makes the glow additive (brighter on overlap)
-        ctx!.globalCompositeOperation = "lighter";
+        ctx!.globalCompositeOperation = glowBlendRef.current;
         ctx!.shadowBlur = 4;
         ctx!.shadowColor = glowColorRef.current;
 
