@@ -69,7 +69,7 @@ export function registerAuthConfig(strategy: AuthStrategy): void {
   app.http("authConfig", {
     methods: ["GET"],
     authLevel: "anonymous",
-    route: "api/auth-config",
+    route: "auth-config",
     handler: createAuthConfigHandler(strategy),
   });
 }

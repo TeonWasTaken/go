@@ -56,65 +56,22 @@ export function useAliasPrefix(): string {
 /** Catch-all: forward unknown paths to the redirect API (mirrors SWA config in dev). */
 function AliasRedirect() {
   const { "*": alias } = useParams();
-  const navigate = useNavigate();
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!alias) return;
 
-    const isDev = import.meta.env.DEV;
-    const path = isDev
+    // Don't intercept auth flow paths
+    if (alias.startsWith(".auth/")) return;
+
+    // Guard against redirect loop when SWA rewrite lands back in the SPA
+    if (alias.startsWith("api/redirect")) return;
+
+    const path = import.meta.env.DEV
       ? `/go-redirect/${encodeURIComponent(alias)}`
       : `/api/redirect/${encodeURIComponent(alias)}`;
 
-    fetch(path, { redirect: "manual" })
-      .then((res) => {
-        if (res.type === "opaqueredirect") {
-          window.location.href = path;
-          return;
-        }
-        if (res.ok || (res.status >= 300 && res.status < 400)) {
-          const location = res.headers.get("location");
-          if (location) {
-            if (location.startsWith("/_/")) {
-              navigate(location, { replace: true });
-            } else {
-              window.location.href = location;
-            }
-          } else {
-            window.location.href = path;
-          }
-        } else if (res.status === 404) {
-          // Alias doesn't exist — show not-found page
-          navigate(`/_/not-found?suggest=${encodeURIComponent(alias)}`, { replace: true });
-        } else if (res.status === 401) {
-          // Auth required — let the normal auth flow handle it
-          window.location.href = path;
-        } else {
-          // Server error (5xx, etc.) — show error state
-          setError(`The server returned an error (${res.status}). The redirect service may be temporarily unavailable.`);
-        }
-      })
-      .catch(() => {
-        setError("Unable to reach the redirect service. Please check your connection and try again.");
-      });
-  }, [alias, navigate]);
-
-  if (error) {
-    return (
-      <div className="redirect-placeholder">
-        <p className="redirect-placeholder__text">{error}</p>
-        <button
-          type="button"
-          className="btn btn--primary"
-          style={{ marginTop: "1rem" }}
-          onClick={() => window.location.reload()}
-        >
-          Retry
-        </button>
-      </div>
-    );
-  }
+    window.location.replace(path);
+  }, [alias]);
 
   return (
     <div className="redirect-placeholder">

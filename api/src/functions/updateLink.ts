@@ -150,7 +150,7 @@ export function registerUpdateLink(strategy: AuthStrategy): void {
   app.http("updateLink", {
     methods: ["PUT"],
     authLevel: "anonymous",
-    route: "api/links/{alias}",
+    route: "links/{alias}",
     handler: createUpdateLinkHandler(strategy),
   });
 }

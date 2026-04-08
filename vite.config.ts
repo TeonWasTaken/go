@@ -29,10 +29,13 @@ export default defineConfig({
         ],
       },
       workbox: {
+        skipWaiting: true,
+        clientsClaim: true,
+        navigateFallbackDenylist: [/^\/api\//, /^\/.auth\//],
         runtimeCaching: [
           {
             urlPattern: /\.(?:js|css|html|svg|png|ico|woff2?)$/,
-            handler: "CacheFirst",
+            handler: "StaleWhileRevalidate",
             options: {
               cacheName: "static-assets",
               expiration: {
@@ -42,7 +45,7 @@ export default defineConfig({
             },
           },
           {
-            urlPattern: /^.*\/api\/.*/,
+            urlPattern: /^.*\/api\/(?!redirect\/).*/,
             handler: "NetworkFirst",
             options: {
               cacheName: "api-cache",
@@ -71,7 +74,7 @@ export default defineConfig({
     },
   },
   test: {
-    environment: "jsdom",
+    environment: "happy-dom",
     setupFiles: ["./src/test-setup.ts"],
     include: ["src/**/*.{test,spec}.{ts,tsx}"],
   },

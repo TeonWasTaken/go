@@ -164,7 +164,7 @@ export function registerCreateLink(strategy: AuthStrategy): void {
   app.http("createLink", {
     methods: ["POST"],
     authLevel: "anonymous",
-    route: "api/links",
+    route: "links",
     handler: createCreateLinkHandler(strategy),
   });
 }

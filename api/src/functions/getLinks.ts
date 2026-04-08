@@ -127,7 +127,7 @@ export function registerGetLinks(strategy: AuthStrategy): void {
   app.http("getLinks", {
     methods: ["GET"],
     authLevel: "anonymous",
-    route: "api/links",
+    route: "links",
     handler: createGetLinksHandler(strategy),
   });
 }
