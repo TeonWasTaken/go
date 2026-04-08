@@ -1,0 +1,5 @@
+*.ts
+!dist/**/*.js
+tests/
+tsconfig.json
+vitest.config.ts

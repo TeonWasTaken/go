@@ -233,7 +233,7 @@ export function registerRedirect(strategy: AuthStrategy): void {
   app.http("redirect", {
     methods: ["GET"],
     authLevel: "anonymous",
-    route: "{alias}",
+    route: "redirect/{alias}",
     handler: createRedirectHandler(strategy),
   });
 }

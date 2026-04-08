@@ -90,6 +90,6 @@ export async function scrapeTitleHandler(
 app.http("scrapeTitle", {
   methods: ["GET"],
   authLevel: "anonymous",
-  route: "api/scrape-title",
+  route: "scrape-title",
   handler: scrapeTitleHandler,
 });

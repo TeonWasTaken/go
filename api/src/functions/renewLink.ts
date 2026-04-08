@@ -115,7 +115,7 @@ export function registerRenewLink(strategy: AuthStrategy): void {
   app.http("renewLink", {
     methods: ["PUT"],
     authLevel: "anonymous",
-    route: "api/links/{alias}/renew",
+    route: "links/{alias}/renew",
     handler: createRenewLinkHandler(strategy),
   });
 }

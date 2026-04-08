@@ -91,7 +91,7 @@ export function registerDeleteLink(strategy: AuthStrategy): void {
   app.http("deleteLink", {
     methods: ["DELETE"],
     authLevel: "anonymous",
-    route: "api/links/{alias}",
+    route: "links/{alias}",
     handler: createDeleteLinkHandler(strategy),
   });
 }
