@@ -31,7 +31,7 @@ export default defineConfig({
       workbox: {
         skipWaiting: true,
         clientsClaim: true,
-        navigateFallbackDenylist: [/^\/api\//, /^\/.auth\//],
+        navigateFallbackDenylist: [/^\/api\//, /^\/\.auth\//],
         runtimeCaching: [
           {
             urlPattern: /\.(?:js|css|html|svg|png|ico|woff2?)$/,
