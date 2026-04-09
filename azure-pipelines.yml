@@ -1,0 +1,50 @@
+trigger:
+  branches:
+    include:
+      - main
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+  - group: go-url-alias
+
+steps:
+  - task: NodeTool@0
+    displayName: "Install Node.js 20"
+    inputs:
+      versionSpec: "20.x"
+
+  - script: npm ci
+    displayName: "Install frontend dependencies"
+
+  - script: npm ci
+    displayName: "Install API dependencies"
+    workingDirectory: api/
+
+  - script: npm test
+    displayName: "Run frontend tests"
+
+  - script: npm test
+    displayName: "Run API tests"
+    workingDirectory: api/
+
+  - script: npm run build
+    displayName: "Build frontend (Vite → dist/)"
+
+  - script: npm run build
+    displayName: "Build API (TypeScript compile)"
+    workingDirectory: api/
+
+  - script: AUTH_MODE=corporate npx tsx scripts/generate-swa-config.ts
+    displayName: "Generate SWA config (corporate mode)"
+
+  - task: AzureStaticWebApp@0
+    displayName: "Deploy to Azure Static Web App"
+    inputs:
+      app_location: /
+      api_location: api/
+      output_location: dist/
+      skip_app_build: true
+      skip_api_build: true
+      azure_static_web_apps_api_token: $(DEPLOYMENT_TOKEN)

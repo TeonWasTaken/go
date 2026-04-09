@@ -28,24 +28,6 @@
       "redirect": "/.auth/login/aad?post_login_redirect_uri=.referrer"
     },
     {
-      "route": "/api/auth-config",
-      "allowedRoles": [
-        "anonymous"
-      ]
-    },
-    {
-      "route": "/api/links",
-      "allowedRoles": [
-        "anonymous"
-      ]
-    },
-    {
-      "route": "/api/redirect/*",
-      "allowedRoles": [
-        "anonymous"
-      ]
-    },
-    {
       "route": "/api/*",
       "allowedRoles": [
         "authenticated"
@@ -65,22 +47,7 @@
     },
     {
       "route": "/_/manage",
-      "rewrite": "/index.html",
-      "allowedRoles": [
-        "authenticated"
-      ]
-    },
-    {
-      "route": "/manifest.json",
-      "allowedRoles": [
-        "anonymous"
-      ]
-    },
-    {
-      "route": "/sw.js",
-      "allowedRoles": [
-        "anonymous"
-      ]
+      "rewrite": "/index.html"
     },
     {
       "route": "/{alias}",

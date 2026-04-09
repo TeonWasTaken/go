@@ -58,7 +58,7 @@ function baseNavigationFallback() {
 }
 
 function basePlatform() {
-  return { apiRuntime: "node:18" };
+  return { apiRuntime: "node:20" };
 }
 
 function aadAuth() {

@@ -64,7 +64,7 @@ describe("generateSwaConfig — corporate", () => {
   });
 
   it("includes platform config", () => {
-    expect(config.platform.apiRuntime).toBe("node:18");
+    expect(config.platform.apiRuntime).toBe("node:20");
   });
 
   it("has /{alias} rewrite without allowedRoles", () => {
@@ -128,7 +128,7 @@ describe("generateSwaConfig — public", () => {
   it("includes navigationFallback and platform", () => {
     const config = generateSwaConfig("public", ["google"]);
     expect(config.navigationFallback.rewrite).toBe("/index.html");
-    expect(config.platform.apiRuntime).toBe("node:18");
+    expect(config.platform.apiRuntime).toBe("node:20");
   });
 });
 
@@ -150,7 +150,7 @@ describe("generateSwaConfig — dev", () => {
 
   it("includes navigationFallback and platform", () => {
     expect(config.navigationFallback.rewrite).toBe("/index.html");
-    expect(config.platform.apiRuntime).toBe("node:18");
+    expect(config.platform.apiRuntime).toBe("node:20");
   });
 
   it("has no auth config section", () => {
