@@ -47,6 +47,10 @@ steps:
   - script: ls $(System.DefaultWorkingDirectory)/dist
     displayName: "List dist contents"
 
+  # Copy static web app config to dist directory
+  - script: cp staticwebapp.config.json dist/
+    displayName: "Copy config to dist"
+
   - task: AzureStaticWebApp@0
     displayName: "Deploy to Azure Static Web App"
     inputs:
