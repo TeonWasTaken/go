@@ -39,6 +39,10 @@ steps:
   - script: AUTH_MODE=corporate npx tsx scripts/generate-swa-config.ts
     displayName: "Generate SWA config (corporate mode)"
 
+  # Copy static web app config to dist directory
+  - script: cp staticwebapp.config.json dist/
+    displayName: "Copy config to dist"
+
   # Debug step to troubleshoot too many files in dist
   - script: ls -R $(System.DefaultWorkingDirectory)/dist | wc -l
     displayName: "Count files in dist"
@@ -46,10 +50,6 @@ steps:
   # Debug step to troubleshoot too many files in dist
   - script: ls $(System.DefaultWorkingDirectory)/dist
     displayName: "List dist contents"
-
-  # Copy static web app config to dist directory
-  - script: cp staticwebapp.config.json dist/
-    displayName: "Copy config to dist"
 
   - task: AzureStaticWebApp@0
     displayName: "Deploy to Azure Static Web App"
