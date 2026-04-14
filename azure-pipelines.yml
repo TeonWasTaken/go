@@ -39,6 +39,14 @@ steps:
   - script: AUTH_MODE=corporate npx tsx scripts/generate-swa-config.ts
     displayName: "Generate SWA config (corporate mode)"
 
+  # Debug step to troubleshoot too many files in dist
+  - script: ls -R $(System.DefaultWorkingDirectory)/dist | wc -l
+    displayName: "Count files in dist"
+
+  # Debug step to troubleshoot too many files in dist
+  - script: ls $(System.DefaultWorkingDirectory)/dist
+    displayName: "List dist contents"
+
   - task: AzureStaticWebApp@0
     displayName: "Deploy to Azure Static Web App"
     inputs:
@@ -47,4 +55,6 @@ steps:
       output_location: dist/
       skip_app_build: true
       skip_api_build: true
+    env:
+      # Map the secret directly to the environment variable the task looks for
       azure_static_web_apps_api_token: $(DEPLOYMENT_TOKEN)
